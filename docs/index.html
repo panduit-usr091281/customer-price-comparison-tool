@@ -1929,15 +1929,15 @@ function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, 
   // Class 2 limit is 1750ft; clamp distance
   const cl2Dist = Math.min(distanceFt, 1750);
 
-  // Class 2: 60VDC system, 45V minimum at load → 15V max voltage drop
+  // Class 2: 60VDC system, 50V minimum at load → 10V max voltage drop
   // Current per pair at full load: 100W / 60V = 1.667A
-  // Vdrop = I × 2 × R_per_ft × distance ≤ 15V
+  // Vdrop = I × 2 × R_per_ft × distance ≤ 10V
   // Copper resistance per foot (solid conductor):
   //   18AWG: 0.006385 Ω/ft
   //   16AWG: 0.004016 Ω/ft
   //   14AWG: 0.002525 Ω/ft
   //   12AWG: 0.001588 Ω/ft
-  const maxVdrop = 15; // 60V - 45V minimum
+  const maxVdrop = 10; // 60V - 50V minimum
   const currentPerPair = 100 / 60; // 1.667A
 
   // AWG sizing by distance; CL2 max = 1750ft
@@ -1953,9 +1953,17 @@ function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, 
   // Actual voltage drop at full load for reporting
   const actualVdrop = currentPerPair * 2 * ohmsPerFt * cl2Dist;
 
-  // Class 2 pairs: each pair delivers 100W (60V × 1.667A)
-  const wattsPerPair = 100;
-  const pairs = Math.max(1, Math.ceil(powerW / wattsPerPair));
+  // Class 2 pairs: each pair sources 100W but delivers less due to voltage drop
+  // Effective delivered watts per pair = (60V - actualVdrop) × I_per_pair
+  // If Vdrop would exceed 10V at full current, limit current to stay within budget
+  let effectiveWattsPerPair;
+  if (actualVdrop <= maxVdrop) {
+    effectiveWattsPerPair = (60 - actualVdrop) * currentPerPair;
+  } else {
+    const maxCurrent = maxVdrop / (2 * ohmsPerFt * cl2Dist);
+    effectiveWattsPerPair = (60 - maxVdrop) * maxCurrent;
+  }
+  const pairs = Math.max(1, Math.ceil(powerW / effectiveWattsPerPair));
   const conductorsPerPair = 2;
   const totalConductors = pairs * conductorsPerPair;
 
@@ -1973,7 +1981,7 @@ function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, 
   const cableFt = totalConductors * cl2Dist * 1.1; // total conductor-feet (for labor calc)
   const pullLaborHrs = pullGroups * cl2Dist * 1.1 * laborPerFtPerGroup;
 
-  const injectorQty = pairs;
+  const injectorQty = Math.max(1, Math.ceil(pairs / 4));
   const dcHubQty = Math.max(1, Math.ceil(powerW / 300));
   const jHookQty = Math.ceil(pathwayFt / 6);
   const penetrationQty = Math.max(1, Math.ceil(cl2Dist / 200));
@@ -2100,7 +2108,7 @@ function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, 
       laborUnits: 0.25,
       laborRate: labor.lvTech,
       laborRole: "Low Voltage Technician",
-      materials: [material("CL2 aggregators", injectorQty, "ea", 160)],
+      materials: [material("CL2 aggregators", injectorQty, "ea", 225)],
       milestone: "Aggregators set",
     }),
     createLineItem({
