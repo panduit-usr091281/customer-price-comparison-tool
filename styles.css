@@ -482,6 +482,22 @@ label small {
   width: 100%;
 }
 
+.summary-warnings {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.8rem;
+}
+
+.summary-warning {
+  border: 1px solid rgba(220, 38, 38, 0.22);
+  border-left: 4px solid #dc2626;
+  border-radius: 12px;
+  background: rgba(254, 242, 242, 0.88);
+  color: #991b1b;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.86rem;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

@@ -548,8 +548,42 @@ function calculateAC(powerW, distanceFt, labor, crewSize, conduitCostOverride, i
 }
 
 function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, outdoorType) {
-  // Class 2 limit is 1750ft; clamp distance
-  const cl2Dist = Math.min(distanceFt, 1750);
+  if (distanceFt > 1750) {
+    const scenario = {
+      name: "Class 2 DC",
+      rows: [],
+      totalCost: 0,
+      totalHours: 0,
+      totalDays: 0,
+      designDays: 0,
+      installDays: 0,
+      crewSize,
+      fit: "bad",
+      fitText: "Distance exceeds Class 2 limit (1750 ft) — not applicable",
+      materialTotal: 0,
+      laborTotal: 0,
+      isApplicable: false,
+      unavailabilityReason: "Distance exceeds Class 2 limit (1750 ft) — not applicable",
+      unavailabilityShortText: "Distance > 1,750 ft",
+      capacity: {
+        applicable: false,
+        usedW: powerW,
+        totalW: 0,
+        remainingW: 0,
+        basis: "Class 2 distance limit exceeded",
+        note: "Class 2 power is not calculated beyond 1,750 ft. Reduce distance or use a different architecture.",
+        ariaLabel: "CL2 DC future capacity is unavailable because the requested run exceeds the 1,750 foot Class 2 distance limit.",
+        stats: [
+          { label: "Requested", value: `${whole(powerW)} W` },
+          { label: "Available", value: "N/A" },
+          { label: "Limit", value: "1,750 ft max" },
+        ],
+      },
+    };
+    return scenario;
+  }
+
+  const cl2Dist = distanceFt;
 
   // Class 2: 60VDC system, 50V minimum at load → 10V max voltage drop
   // Current per pair at full load: 100W / 60V = 1.667A
@@ -820,40 +854,23 @@ function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, 
   ];
 
   const scenario = summarize("Class 2 DC", lineItems, {
-    fit: distanceFt > 1750 ? "bad" : (powerW <= 100 && distanceFt <= 300 ? "good" : "warn"),
+    fit: powerW <= 100 && distanceFt <= 300 ? "good" : "warn",
     fitText:
-      distanceFt > 1750
-        ? `Distance exceeds Class 2 limit (1750 ft) — not applicable`
-        : powerW <= 100 && distanceFt <= 300
+      powerW <= 100 && distanceFt <= 300
         ? "Best for low-power and shorter spans"
         : "Parallel runs increase cost at higher loads",
   }, crewSize);
 
   const cl2ProvisionedW = pairs * effectiveWattsPerPair;
-  scenario.capacity = distanceFt > 1750
-    ? {
-        applicable: false,
-        usedW: powerW,
-        totalW: 0,
-        remainingW: 0,
-        basis: "Class 2 distance limit exceeded",
-        note: "Capacity is not shown when the requested run exceeds the 1,750 ft Class 2 limit.",
-        ariaLabel: "CL2 DC future capacity is unavailable because the requested run exceeds the 1,750 foot distance limit.",
-        stats: [
-          { label: "Requested", value: `${whole(powerW)} W` },
-          { label: "Available", value: "N/A" },
-          { label: "Limit", value: "1,750 ft max" },
-        ],
-      }
-    : {
-        applicable: true,
-        usedW: powerW,
-        totalW: cl2ProvisionedW,
-        remainingW: Math.max(0, cl2ProvisionedW - powerW),
-        basis: `${pairs} deployed pair${pairs > 1 ? "s" : ""} to endpoint`,
-        note: `${whole(effectiveWattsPerPair)}W delivered per pair after voltage-drop adjustment at ${whole(cl2Dist)} ft.`,
-        totalLabel: "Pair Capacity",
-      };
+  scenario.capacity = {
+    applicable: true,
+    usedW: powerW,
+    totalW: cl2ProvisionedW,
+    remainingW: Math.max(0, cl2ProvisionedW - powerW),
+    basis: `${pairs} deployed pair${pairs > 1 ? "s" : ""} to endpoint`,
+    note: `${whole(effectiveWattsPerPair)}W delivered per pair after voltage-drop adjustment at ${whole(cl2Dist)} ft.`,
+    totalLabel: "Pair Capacity",
+  };
 
   return scenario;
 }
@@ -1180,6 +1197,38 @@ function summarize(name, lineItems, fitMeta, crewSize = 1) {
   };
 }
 
+function isScenarioApplicable(scenario) {
+  return scenario.isApplicable !== false;
+}
+
+function scenarioWarningText(scenario) {
+  return scenario.unavailabilityReason || scenario.fitText || "Not applicable";
+}
+
+function scenarioWarningShortText(scenario) {
+  return scenario.unavailabilityShortText || "Not applicable";
+}
+
+function scenarioSortValue(scenario) {
+  return isScenarioApplicable(scenario) ? scenario.totalCost : Number.POSITIVE_INFINITY;
+}
+
+function sortScenariosByCost(scenarios) {
+  return [...scenarios].sort((a, b) => {
+    const delta = scenarioSortValue(a) - scenarioSortValue(b);
+    if (delta !== 0) return delta;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function formatScenarioCurrency(scenario, value = scenario.totalCost) {
+  return isScenarioApplicable(scenario) ? money(value) : "N/A";
+}
+
+function formatScenarioNumber(scenario, value, digits = 1, suffix = "") {
+  return isScenarioApplicable(scenario) ? `${num(value, digits)}${suffix}` : "N/A";
+}
+
 function getRoutingCostMultiplier(installationType, inBuildingType, outdoorType) {
   let multiplier = 1;
 
@@ -1259,21 +1308,31 @@ function buildComparison(powerW, distanceFt, labor, crewSize, conduitCostOverrid
 
   // Apply routing and endpoint multipliers to each scenario (scoped by phase)
   scenarios.forEach((scenario) => {
+    if (!isScenarioApplicable(scenario)) return;
     scenario.totalCost = applyInputMultipliers(scenario, installationType, inBuildingType, outdoorType, endDeviceType);
   });
 
-  scenarios.sort((a, b) => a.totalCost - b.totalCost);
-  return scenarios;
+  return sortScenariosByCost(scenarios);
 }
 
 function renderSummary(scenarios, powerW, distanceFt, crewSize) {
-  const sorted = [...scenarios].sort((a, b) => a.totalCost - b.totalCost);
-  const lowestCost = sorted[0].totalCost;
-  const fastestDays = Math.min(...scenarios.map((s) => s.totalDays));
+  const applicableScenarios = sortScenariosByCost(scenarios).filter(isScenarioApplicable);
+  const lowestCost = applicableScenarios.length ? applicableScenarios[0].totalCost : 0;
+  const fastestDays = applicableScenarios.length ? Math.min(...applicableScenarios.map((s) => s.totalDays)) : 0;
+
+  const warningHtml = scenarios
+    .filter((scenario) => !isScenarioApplicable(scenario))
+    .map((scenario) => `
+      <div class="summary-warning" data-arch="${scenarioArchKey(scenario.name)}">
+        <strong>${scenarioShortLabel(scenario.name)} warning:</strong> ${scenarioWarningText(scenario)}
+      </div>
+    `)
+    .join("");
 
   const scenarioCards = scenarios.map((s) => {
-    const isCheapest = s.totalCost === lowestCost;
-    const isFastest = s.totalDays === fastestDays;
+    const applicable = isScenarioApplicable(s);
+    const isCheapest = applicable && s.totalCost === lowestCost;
+    const isFastest = applicable && s.totalDays === fastestDays;
     const isSafest = scenarioArchKey(s.name) === "cl4";
     const cheapestClass = isCheapest ? " cheapest" : "";
     const badges = [
@@ -1285,8 +1344,9 @@ function renderSummary(scenarios, powerW, distanceFt, crewSize) {
     return `
       <article class="metric scenario-metric${cheapestClass}" data-arch="${scenarioArchKey(s.name)}">
         <p class="scenario-metric-name">${s.name}</p>
-        <h3>${money(s.totalCost)}</h3>
-        <p>${num(s.totalDays, 1)} calendar days</p>
+        <h3>${formatScenarioCurrency(s)}</h3>
+        <p>${applicable ? `${num(s.totalDays, 1)} calendar days` : "Not applicable"}</p>
+        ${applicable ? "" : `<p class="subtle">${scenarioWarningText(s)}</p>`}
         ${badges ? `<div class="snap-badges">${badges}</div>` : ""}
       </article>
     `;
@@ -1305,6 +1365,7 @@ function renderSummary(scenarios, powerW, distanceFt, crewSize) {
         <p>phases 3 – 6</p>
       </article>
     </div>
+    ${warningHtml ? `<div class="summary-warnings">${warningHtml}</div>` : ""}
     <div class="metrics snapshot-scenarios">
       ${scenarioCards}
     </div>
@@ -1333,6 +1394,7 @@ function renderPhaseSections(scenarios) {
     .map((phase) => {
       const cards = scenarios
         .map((scenario) => {
+          const applicable = isScenarioApplicable(scenario);
           const phaseRows = scenario.rows.filter((r) => r.phase === phase);
           const phaseCost = phaseRows.reduce((sum, r) => sum + r.lineTotal, 0);
           const rawHours = phaseRows.reduce((sum, r) => sum + r.laborHours, 0);
@@ -1343,8 +1405,9 @@ function renderPhaseSections(scenarios) {
           return `
             <article class="option-pill" data-arch="${scenarioArchKey(scenario.name)}">
               <h4>${scenario.name}</h4>
-              <p><strong>Phase Cost:</strong> ${money(phaseCost)}</p>
-              <p><strong>Phase Time:</strong> ${num(phaseDays, 1)} days</p>
+              <p><strong>Phase Cost:</strong> ${applicable ? money(phaseCost) : "N/A"}</p>
+              <p><strong>Phase Time:</strong> ${applicable ? `${num(phaseDays, 1)} days` : "N/A"}</p>
+              ${applicable ? "" : `<p class="subtle">${scenarioWarningText(scenario)}</p>`}
             </article>
           `;
         })
@@ -1388,7 +1451,11 @@ function renderPhaseSections(scenarios) {
       }).join("");
 
       // Totals row
-      const totalCells = colTotals.map((t) => `<td class="task-check task-cost task-total">${money(t)}</td>`).join("");
+      const totalCells = scenarios.map((scenario, index) => (
+        isScenarioApplicable(scenario)
+          ? `<td class="task-check task-cost task-total">${money(colTotals[index])}</td>`
+          : `<td class="task-check task-total"><span class="check-no">N/A</span></td>`
+      )).join("");
       const totalsRow = `<tr class="task-totals-row"><td class="task-name"><strong>Phase Total</strong></td>${totalCells}</tr>`;
 
       return `
@@ -1421,9 +1488,11 @@ const PHASE_NAMES_SHORT = {
 
 function renderGantt(scenarios) {
   const phaseOrder = [...new Set(scenarios.flatMap((s) => s.rows.map((r) => r.phase)))];
-  const maxDays = Math.max(...scenarios.map((s) => s.totalDays));
+  const applicableScenarios = scenarios.filter(isScenarioApplicable);
+  const maxDays = applicableScenarios.length ? Math.max(...applicableScenarios.map((s) => s.totalDays)) : 1;
 
   const bars = scenarios.map((scenario) => {
+    const applicable = isScenarioApplicable(scenario);
     const trackBars = phaseOrder.map((phase, pi) => {
       const phaseRows = scenario.rows.filter((r) => r.phase === phase);
       const rawHours = phaseRows.reduce((sum, r) => sum + r.laborHours, 0);
@@ -1434,7 +1503,7 @@ function renderGantt(scenarios) {
       const short = PHASE_NAMES_SHORT[phase] || phase;
       const colorClass = GANTT_COLORS[pi % GANTT_COLORS.length];
       return { phase, short, days, pct, colorClass };
-    }).filter((b) => b.days > 0);
+    }).filter((b) => applicable && b.days > 0);
 
     return { scenario, bars: trackBars };
   });
@@ -1459,7 +1528,7 @@ function renderGantt(scenarios) {
       <div class="gantt-scenario">
         <div class="gantt-label-row">
           <span class="gantt-scenario-name">${scenario.name}</span>
-          <span class="gantt-total-label">${num(scenario.totalDays,1)} total days</span>
+          <span class="gantt-total-label">${isScenarioApplicable(scenario) ? `${num(scenario.totalDays,1)} total days` : "N/A"}</span>
           <span class="badge ${scenario.fit}">${scenario.fitText}</span>
         </div>
         <div class="gantt-track">${barHtml}</div>
@@ -1528,19 +1597,22 @@ function renderSpiderChart(scenarios) {
   const container = document.getElementById("comparisonRadar");
   if (!container) return;
 
-  const ceiling = Math.max(...scenarios.map((s) => s.totalCost)) * 1.5;
-  const sorted = [...scenarios].sort((a, b) => a.totalCost - b.totalCost);
+  const applicableScenarios = sortScenariosByCost(scenarios).filter(isScenarioApplicable);
+  const ceiling = applicableScenarios.length ? Math.max(...applicableScenarios.map((s) => s.totalCost)) * 1.5 : 1;
+  const lowestCost = applicableScenarios.length ? applicableScenarios[0].totalCost : 0;
+  const sorted = sortScenariosByCost(scenarios);
 
-  const rows = sorted.map((scenario, index) => {
+  const rows = sorted.map((scenario) => {
+    const applicable = isScenarioApplicable(scenario);
     const arch = scenarioArchKey(scenario.name);
     const archLabel = arch === "ac" ? "AC" : arch === "cl2" ? "CL2" : "CL4";
-    const pct = (scenario.totalCost / ceiling) * 100;
-    const cheapestBadge = index === 0 ? `<span class="cost-best">Lowest</span>` : "";
+    const pct = applicable && ceiling > 0 ? (scenario.totalCost / ceiling) * 100 : 0;
+    const cheapestBadge = applicable && scenario.totalCost === lowestCost ? `<span class="cost-best">Lowest</span>` : "";
     return `
       <article class="cost-row" data-arch="${arch}">
         <div class="cost-row-head">
           <p class="cost-row-name">${archLabel} ${cheapestBadge}</p>
-          <p class="cost-row-value">${money(scenario.totalCost)}</p>
+          <p class="cost-row-value">${formatScenarioCurrency(scenario)}</p>
         </div>
         <div class="cost-row-track">
           <div class="cost-row-fill" style="width:${pct}%"></div>
@@ -1878,11 +1950,11 @@ function exportPDF() {
 
   const summaryRows = lastScenarios.map((s) => [
     s.name,
-    `$${s.totalCost.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
-    `$${s.materialTotal.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
-    `$${s.laborTotal.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
-    `${s.totalHours.toFixed(1)} hrs`,
-    `${s.totalDays.toFixed(1)} days`,
+    formatScenarioCurrency(s, s.totalCost),
+    formatScenarioCurrency(s, s.materialTotal),
+    formatScenarioCurrency(s, s.laborTotal),
+    formatScenarioNumber(s, s.totalHours, 1, " hrs"),
+    formatScenarioNumber(s, s.totalDays, 1, " days"),
     s.fitText,
   ]);
 
@@ -1907,12 +1979,14 @@ function exportPDF() {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(
-      `Total: $${scenario.totalCost.toLocaleString("en-US", { maximumFractionDigits: 0 })} | ${scenario.totalDays.toFixed(1)} days | ${scenario.totalHours.toFixed(1)} labor hours`,
+      isScenarioApplicable(scenario)
+        ? `Total: ${formatScenarioCurrency(scenario)} | ${formatScenarioNumber(scenario, scenario.totalDays, 1, " days")} | ${formatScenarioNumber(scenario, scenario.totalHours, 1, " labor hours")}`
+        : `Status: Not applicable | ${scenarioWarningText(scenario)}`,
       margin, y + 4
     );
     y += 10;
 
-    const lineRows = scenario.rows.map((r) => [
+    const lineRows = scenario.rows.length ? scenario.rows.map((r) => [
       r.phase.replace(/^\d+\)\s*/, ""),
       r.activity,
       `${r.quantity.toFixed(1)} ${r.unit}`,
@@ -1921,7 +1995,7 @@ function exportPDF() {
       `$${r.materialCost.toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
       `$${r.laborCost.toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
       `$${r.lineTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
-    ]);
+    ]) : [["Status", scenarioWarningText(scenario), "", "", "", "", "", ""]];
 
     doc.autoTable({
       startY: y,
@@ -1957,7 +2031,7 @@ function exportPDF() {
     const row = [phase];
     lastScenarios.forEach((s) => {
       const phaseCost = s.rows.filter((r) => r.phase === phase).reduce((sum, r) => sum + r.lineTotal, 0);
-      row.push(`$${phaseCost.toLocaleString("en-US", { maximumFractionDigits: 0 })}`);
+      row.push(isScenarioApplicable(s) ? money(phaseCost) : "N/A");
     });
     return row;
   });
@@ -2021,7 +2095,15 @@ function exportExcel() {
   summaryData.push(["EXECUTIVE SUMMARY"]);
   summaryData.push(["Architecture", "Total Cost", "Materials", "Labor", "Hours", "Days", "Fit Assessment"]);
   lastScenarios.forEach((s) => {
-    summaryData.push([s.name, s.totalCost, s.materialTotal, s.laborTotal, s.totalHours, s.totalDays, s.fitText]);
+    summaryData.push([
+      s.name,
+      isScenarioApplicable(s) ? s.totalCost : "N/A",
+      isScenarioApplicable(s) ? s.materialTotal : "N/A",
+      isScenarioApplicable(s) ? s.laborTotal : "N/A",
+      isScenarioApplicable(s) ? s.totalHours : "N/A",
+      isScenarioApplicable(s) ? s.totalDays : "N/A",
+      s.fitText,
+    ]);
   });
 
   const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
@@ -2032,28 +2114,36 @@ function exportExcel() {
   lastScenarios.forEach((scenario) => {
     const data = [
       [`${scenario.name} — Line Item Detail`],
-      [`Total Cost: $${scenario.totalCost.toLocaleString("en-US", { maximumFractionDigits: 0 })}`],
-      [`Duration: ${scenario.totalDays.toFixed(1)} calendar days (${scenario.totalHours.toFixed(1)} labor hours)`],
+      [`Total Cost: ${formatScenarioCurrency(scenario)}`],
+      [
+        isScenarioApplicable(scenario)
+          ? `Duration: ${formatScenarioNumber(scenario, scenario.totalDays, 1, " calendar days")} (${formatScenarioNumber(scenario, scenario.totalHours, 1, " labor hours")})`
+          : `Status: ${scenarioWarningText(scenario)}`
+      ],
       [],
       ["Phase", "Activity", "Description", "Quantity", "Unit", "Labor Role", "Labor Hours", "Labor Rate ($/hr)", "Material Cost ($)", "Labor Cost ($)", "Line Total ($)", "Milestone"],
     ];
 
-    scenario.rows.forEach((r) => {
-      data.push([
-        r.phase,
-        r.activity,
-        r.description,
-        r.quantity,
-        r.unit,
-        r.laborRole,
-        r.laborHours,
-        r.laborRate,
-        r.materialCost,
-        r.laborCost,
-        r.lineTotal,
-        r.milestone,
-      ]);
-    });
+    if (scenario.rows.length) {
+      scenario.rows.forEach((r) => {
+        data.push([
+          r.phase,
+          r.activity,
+          r.description,
+          r.quantity,
+          r.unit,
+          r.laborRole,
+          r.laborHours,
+          r.laborRate,
+          r.materialCost,
+          r.laborCost,
+          r.lineTotal,
+          r.milestone,
+        ]);
+      });
+    } else {
+      data.push(["Status", scenarioWarningText(scenario)]);
+    }
 
     // Phase subtotals
     data.push([]);
@@ -2089,21 +2179,21 @@ function exportExcel() {
   phaseOrder.forEach((phase) => {
     const row = [phase];
     lastScenarios.forEach((s) => {
-      row.push(s.rows.filter((r) => r.phase === phase).reduce((sum, r) => sum + r.lineTotal, 0));
+      row.push(isScenarioApplicable(s) ? s.rows.filter((r) => r.phase === phase).reduce((sum, r) => sum + r.lineTotal, 0) : "N/A");
     });
     lastScenarios.forEach((s) => {
       const phaseRows = s.rows.filter((r) => r.phase === phase);
       const hrs = phaseRows.reduce((sum, r) => sum + r.laborHours, 0);
       const days = DESIGN_PHASES.has(phase) ? hrs / 8 : hrs / 8 / s.crewSize;
-      row.push(parseFloat(days.toFixed(1)));
+      row.push(isScenarioApplicable(s) ? parseFloat(days.toFixed(1)) : "N/A");
     });
     compData.push(row);
   });
 
   // Totals row
   const totalRow = ["TOTAL"];
-  lastScenarios.forEach((s) => totalRow.push(s.totalCost));
-  lastScenarios.forEach((s) => totalRow.push(parseFloat(s.totalDays.toFixed(1))));
+  lastScenarios.forEach((s) => totalRow.push(isScenarioApplicable(s) ? s.totalCost : "N/A"));
+  lastScenarios.forEach((s) => totalRow.push(isScenarioApplicable(s) ? parseFloat(s.totalDays.toFixed(1)) : "N/A"));
   compData.push(totalRow);
 
   const ws4 = XLSX.utils.aoa_to_sheet(compData);
@@ -2271,10 +2361,22 @@ function runMultiModel() {
   });
 
   // Aggregate totals per architecture
-  const archTotals = { "Class 1 AC": { cost: 0, days: 0 }, "Class 2 DC": { cost: 0, days: 0 }, "Class 4 Fault Managed Power": { cost: 0, days: 0 } };
+  const archTotals = {
+    "Class 1 AC": { cost: 0, days: 0, applicable: true, warningText: "" },
+    "Class 2 DC": { cost: 0, days: 0, applicable: true, warningText: "" },
+    "Class 4 Fault Managed Power": { cost: 0, days: 0, applicable: true, warningText: "" },
+  };
   perLocation.forEach(({ scenarios }) => {
     scenarios.forEach((s) => {
       if (archTotals[s.name]) {
+        if (!isScenarioApplicable(s)) {
+          archTotals[s.name].applicable = false;
+          archTotals[s.name].warningText = scenarioWarningText(s);
+          archTotals[s.name].cost = 0;
+          archTotals[s.name].days = 0;
+          return;
+        }
+        if (archTotals[s.name].applicable === false) return;
         archTotals[s.name].cost += s.totalCost;
         archTotals[s.name].days += s.totalDays;
       }
@@ -2292,19 +2394,24 @@ function renderMultiSummary(perLocation, archTotals, crewSize) {
   const totalLocations = perLocation.length;
   const totalPowerW = perLocation.reduce((s, p) => s + p.loc.powerW, 0);
 
-  const archEntries = Object.entries(archTotals).sort((a, b) => a[1].cost - b[1].cost);
-  const lowestCost = archEntries[0][1].cost;
+  const archEntries = Object.entries(archTotals).sort((a, b) => {
+    const aCost = a[1].applicable === false ? Number.POSITIVE_INFINITY : a[1].cost;
+    const bCost = b[1].applicable === false ? Number.POSITIVE_INFINITY : b[1].cost;
+    return aCost - bCost;
+  });
+  const applicableEntries = archEntries.filter(([, data]) => data.applicable !== false);
+  const lowestCost = applicableEntries.length ? applicableEntries[0][1].cost : 0;
 
   const archCards = archEntries.map(([name, data]) => {
     const arch = scenarioArchKey(name);
-    const isCheapest = data.cost === lowestCost;
+    const isCheapest = data.applicable !== false && data.cost === lowestCost;
     const cheapClass = isCheapest ? " cheapest" : "";
     const badge = isCheapest ? `<div class="snap-badges"><span class="snap-badge good">Lowest Total</span></div>` : "";
     return `
       <article class="metric scenario-metric${cheapClass}" data-arch="${arch}">
         <p class="scenario-metric-name">${name}</p>
-        <h3>${money(data.cost)}</h3>
-        <p>${num(data.days, 1)} total calendar days</p>
+        <h3>${data.applicable === false ? "N/A" : money(data.cost)}</h3>
+        <p>${data.applicable === false ? data.warningText : `${num(data.days, 1)} total calendar days`}</p>
         ${badge}
       </article>
     `;
@@ -2332,9 +2439,11 @@ function renderMultiSummary(perLocation, archTotals, crewSize) {
 
 function renderMultiGantt(scenarios) {
   const phaseOrder = [...new Set(scenarios.flatMap((s) => s.rows.map((r) => r.phase)))];
-  const maxDays = Math.max(...scenarios.map((s) => s.totalDays));
+  const applicableScenarios = scenarios.filter(isScenarioApplicable);
+  const maxDays = applicableScenarios.length ? Math.max(...applicableScenarios.map((s) => s.totalDays)) : 1;
 
   const trackHtml = scenarios.map((scenario) => {
+    const applicable = isScenarioApplicable(scenario);
     const trackBars = phaseOrder.map((phase, pi) => {
       const phaseRows = scenario.rows.filter((r) => r.phase === phase);
       const rawHours = phaseRows.reduce((sum, r) => sum + r.laborHours, 0);
@@ -2343,7 +2452,7 @@ function renderMultiGantt(scenarios) {
       const short = PHASE_NAMES_SHORT[phase] || phase;
       const colorClass = GANTT_COLORS[pi % GANTT_COLORS.length];
       return { short, days, pct, colorClass, phase };
-    }).filter((b) => b.days > 0);
+    }).filter((b) => applicable && b.days > 0);
 
     const barHtml = trackBars.map((b) => `
       <div class="gantt-bar ${b.colorClass}" style="width:${b.pct}%" title="${b.phase}: ${num(b.days,1)} days">
@@ -2357,7 +2466,7 @@ function renderMultiGantt(scenarios) {
       <div class="gantt-scenario gantt-mini">
         <div class="gantt-label-row">
           <span class="gantt-scenario-name">${label}</span>
-          <span class="gantt-total-label">${num(scenario.totalDays,1)} days</span>
+          <span class="gantt-total-label">${applicable ? `${num(scenario.totalDays,1)} days` : "N/A"}</span>
         </div>
         <div class="gantt-track">${barHtml}</div>
       </div>
@@ -2369,15 +2478,16 @@ function renderMultiGantt(scenarios) {
 
 function renderMultiBreakdown(perLocation) {
   const html = perLocation.map(({ loc, scenarios }) => {
-    const sorted = [...scenarios].sort((a, b) => a.totalCost - b.totalCost);
+    const sorted = sortScenariosByCost(scenarios);
     const pills = sorted.map((s) => {
+      const applicable = isScenarioApplicable(s);
       const arch = scenarioArchKey(s.name);
       const label = arch === "ac" ? "CL1 AC" : arch === "cl2" ? "CL2 DC" : "CL4 FMP";
       return `
         <div class="loc-arch-pill" data-arch="${arch}">
           <div class="pill-label">${label}</div>
-          <div class="pill-cost">${money(s.totalCost)}</div>
-          <div class="pill-days">${num(s.totalDays, 1)} days</div>
+          <div class="pill-cost">${formatScenarioCurrency(s)}</div>
+          <div class="pill-days">${applicable ? `${num(s.totalDays, 1)} days` : scenarioWarningShortText(s)}</div>
         </div>
       `;
     }).join("");
