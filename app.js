@@ -23,6 +23,12 @@ function num(value, digits = 1) {
   return Number(value).toFixed(digits);
 }
 
+function whole(value) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -90,6 +96,33 @@ function conduitRate(powerW, sizeOverride) {
 // Conductor count: 1-phase (≤2000W) = 3 wires (H+N+G), 3-phase (>2000W) = 5 wires (3P+N+G)
 function conductorCount(powerW) {
   return powerW <= 2000 ? 3 : 5;
+}
+
+const STANDARD_BREAKER_AMPS = [15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 110, 125, 150, 175, 200, 225, 250, 300, 350, 400];
+
+function nextStandardBreaker(requiredAmps) {
+  return STANDARD_BREAKER_AMPS.find((amp) => amp >= requiredAmps) || STANDARD_BREAKER_AMPS[STANDARD_BREAKER_AMPS.length - 1];
+}
+
+function estimateACCircuitCapacity(powerW) {
+  const isThreePhase = powerW > 2000;
+  const voltage = isThreePhase ? 208 : 120;
+  const requiredAmps = isThreePhase
+    ? powerW / (Math.sqrt(3) * voltage)
+    : powerW / voltage;
+  const breakerAmps = nextStandardBreaker(requiredAmps * 1.25);
+  const totalW = isThreePhase
+    ? Math.sqrt(3) * voltage * breakerAmps * 0.8
+    : voltage * breakerAmps * 0.8;
+
+  return {
+    applicable: true,
+    usedW: powerW,
+    totalW,
+    remainingW: Math.max(0, totalW - powerW),
+    basis: `${breakerAmps}A ${isThreePhase ? "208V 3-phase" : "120V 1-phase"} circuit`,
+    note: "Standard breaker sizing with 80% continuous-load usable capacity.",
+  };
 }
 
 // Pull boxes required per NEC (~1 per 100ft of conduit run)
@@ -499,7 +532,7 @@ function calculateAC(powerW, distanceFt, labor, crewSize, conduitCostOverride, i
     ]),
   ];
 
-  return summarize("Class 1 AC", lineItems, {
+  const scenario = summarize("Class 1 AC", lineItems, {
     fit: distanceFt <= 150 || powerW > 10000 ? "good" : "warn",
     fitText:
       distanceFt <= 150
@@ -508,6 +541,9 @@ function calculateAC(powerW, distanceFt, labor, crewSize, conduitCostOverride, i
         ? "Required for very high power loads"
         : "Higher cost and time as distance grows",
   }, crewSize);
+
+  scenario.capacity = estimateACCircuitCapacity(powerW);
+  return scenario;
 }
 
 function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, outdoorType) {
@@ -782,7 +818,7 @@ function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, 
     }),
   ];
 
-  return summarize("Class 2 DC", lineItems, {
+  const scenario = summarize("Class 2 DC", lineItems, {
     fit: distanceFt > 1750 ? "bad" : (powerW <= 100 && distanceFt <= 300 ? "good" : "warn"),
     fitText:
       distanceFt > 1750
@@ -791,6 +827,27 @@ function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, 
         ? "Best for low-power and shorter spans"
         : "Parallel runs increase cost at higher loads",
   }, crewSize);
+
+  const cl2ProvisionedW = pairs * effectiveWattsPerPair;
+  scenario.capacity = distanceFt > 1750
+    ? {
+        applicable: false,
+        usedW: powerW,
+        totalW: powerW,
+        remainingW: 0,
+        basis: "Class 2 distance limit exceeded",
+        note: "Capacity is not shown when the requested run exceeds the 1,750 ft Class 2 limit.",
+      }
+    : {
+        applicable: true,
+        usedW: powerW,
+        totalW: cl2ProvisionedW,
+        remainingW: Math.max(0, cl2ProvisionedW - powerW),
+        basis: `${pairs} deployed pair${pairs > 1 ? "s" : ""} to endpoint`,
+        note: `${whole(effectiveWattsPerPair)}W delivered per pair after voltage-drop adjustment at ${whole(cl2Dist)} ft.`,
+      };
+
+  return scenario;
 }
 
 function calculateClass4(powerW, distanceFt, labor, crewSize, installationType, outdoorType) {
@@ -1043,13 +1100,25 @@ function calculateClass4(powerW, distanceFt, labor, crewSize, installationType, 
     }),
   ];
 
-  return summarize("Class 4 Fault Managed Power", lineItems, {
+  const scenario = summarize("Class 4 Fault Managed Power", lineItems, {
     fit: powerW <= 4500 ? "good" : "warn",
     fitText:
       powerW <= 4500
         ? "Strong fit for medium-to-high power over long runs"
         : "Above 4.5 kW may require AC architecture",
   }, crewSize);
+
+  const cl4ProvisionedW = receiverQty * 1800;
+  scenario.capacity = {
+    applicable: true,
+    usedW: powerW,
+    totalW: cl4ProvisionedW,
+    remainingW: Math.max(0, cl4ProvisionedW - powerW),
+    basis: `${receiverQty} receiver${receiverQty > 1 ? "s" : ""} provisioned`,
+    note: `${channels} active channel${channels > 1 ? "s" : ""}; each receiver adds up to 1,800W of available output capacity.`,
+  };
+
+  return scenario;
 }
 
 function summarize(name, lineItems, fitMeta, crewSize = 1) {
@@ -1553,6 +1622,68 @@ function renderCostDrivers(scenarios) {
   `;
 }
 
+function renderCapacityAvailability(scenarios) {
+  const container = document.getElementById("capacityAvailability");
+  if (!container) return;
+
+  const order = ["ac", "cl2", "cl4"];
+
+  const cards = order.map((arch) => {
+    const scenario = scenarios.find((item) => scenarioArchKey(item.name) === arch);
+    if (!scenario || !scenario.capacity) return "";
+
+    const capacity = scenario.capacity;
+    const totalW = Math.max(capacity.totalW || capacity.usedW || 0, 1);
+    const usedW = clamp(capacity.usedW || 0, 0, totalW);
+    const remainingW = Math.max(0, capacity.remainingW ?? (totalW - usedW));
+    const usedPct = capacity.applicable === false ? 100 : clamp((usedW / totalW) * 100, 0, 100);
+    const remainingPct = capacity.applicable === false ? 0 : Math.max(0, 100 - usedPct);
+    const remainingPctLabel = remainingPct > 0 && remainingPct < 1 ? "<1%" : `${whole(remainingPct)}%`;
+    const pieStyle = capacity.applicable === false
+      ? "--used-pct: 100; --pie-color: rgba(95, 102, 116, 0.22);"
+      : `--used-pct: ${usedPct}; --pie-color: var(--arch-${arch});`;
+
+    return `
+      <article class="capacity-card${capacity.applicable === false ? " is-unavailable" : ""}" data-arch="${arch}">
+        <div class="capacity-card-head">
+          <p class="capacity-card-kicker">Future Capacity</p>
+          <h3>${scenarioShortLabel(scenario.name)}</h3>
+          <p class="capacity-card-basis">${capacity.basis}</p>
+        </div>
+        <div class="capacity-body">
+          <div class="capacity-pie" style="${pieStyle}" role="img" aria-label="${scenarioShortLabel(scenario.name)} uses ${whole(usedW)} watts out of ${whole(totalW)} watts provisioned, leaving ${whole(remainingW)} watts available.">
+            <div class="capacity-pie-center">
+              <strong>${capacity.applicable === false ? "N/A" : remainingPctLabel}</strong>
+              <span>${capacity.applicable === false ? "limit" : "free"}</span>
+            </div>
+          </div>
+          <div class="capacity-stats">
+            <div class="capacity-stat">
+              <span>In Use</span>
+              <strong>${whole(usedW)} W</strong>
+            </div>
+            <div class="capacity-stat">
+              <span>Available</span>
+              <strong>${whole(remainingW)} W</strong>
+            </div>
+            <div class="capacity-stat">
+              <span>Provisioned</span>
+              <strong>${whole(totalW)} W</strong>
+            </div>
+          </div>
+        </div>
+        <div class="capacity-legend">
+          <span class="capacity-legend-item"><span class="capacity-swatch" style="--swatch:${capacity.applicable === false ? "rgba(95, 102, 116, 0.22)" : `var(--arch-${arch})`}\;"></span>Used</span>
+          <span class="capacity-legend-item"><span class="capacity-swatch capacity-swatch-free"></span>Available</span>
+        </div>
+        <p class="capacity-note">${capacity.note}</p>
+      </article>
+    `;
+  }).join("");
+
+  container.innerHTML = `<div class="capacity-grid">${cards}</div>`;
+}
+
 
 function runModel() {
   const labor = getLaborRates();
@@ -1565,6 +1696,7 @@ function runModel() {
   renderSummary(scenarios, powerW, distanceFt, crewSize);
   renderSpiderChart(scenarios);
   renderCostDrivers(scenarios);
+  renderCapacityAvailability(scenarios);
 }
 
 function generateOutput() {
