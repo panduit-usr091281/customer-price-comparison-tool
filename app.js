@@ -810,12 +810,16 @@ function calculateClass4(powerW, distanceFt, labor, crewSize, installationType, 
   const cl4Pairs = Math.max(1, Math.ceil(powerW / wattsPerPair));
   const cl4TotalConductors = cl4Pairs * 2;
 
-  const channels = Math.max(1, Math.ceil(powerW / 1300));
+  const receiverQty = Math.max(1, Math.ceil(powerW / 1500));
+  const channels = receiverQty * 3;
+  // Head-end: $2100 base, doubles linearly from channel 10 to 18
+  const headEndCost = channels <= 9
+    ? 2100
+    : 2100 + (2100 * Math.min(1, (channels - 9) / 9));
   // CL4 cable pricing per foot (whole cable assembly): 1-pair=$1.10, 2-pair=$1.22, 3-pair=$1.36
   const cl4CableRatePerFt = cl4Pairs <= 1 ? 1.10 : cl4Pairs <= 2 ? 1.22 : 1.36;
   const cl4CableFt = distanceFt * 1.1; // cable run length with 10% slack
   const cl4RunFt = distanceFt * 1.1; // pathway run length
-  const receiverQty = Math.max(1, Math.ceil(powerW / 1500));
   const pathwaySupportQty = Math.ceil(cl4RunFt / 8);
   const penetrationQty = Math.max(1, Math.ceil(distanceFt / 200));
 
@@ -923,13 +927,13 @@ function calculateClass4(powerW, distanceFt, labor, crewSize, installationType, 
     createLineItem({
       phase: "4) Power Equipment Install",
       activity: "FMP transmitter / head-end installation",
-      description: "Install head-end chassis, PSU modules, and channel cards",
-      quantity: channels,
-      unit: "ch",
-      laborUnits: 1.5,
+      description: `Install head-end chassis, PSU modules, and ${channels} channel cards`,
+      quantity: 1,
+      unit: "ea",
+      laborUnits: 1.5 * Math.ceil(channels / 3),
       laborRate: labor.lvTech,
       laborRole: "Low Voltage Technician",
-      materials: [material("Class 4 head-end channel allocation", channels, "ch", 2600)],
+      materials: [material("Class 4 head-end (" + channels + " ch)", 1, "ea", headEndCost)],
       milestone: "Head-end installed",
     }),
     createLineItem({
