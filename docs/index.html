@@ -2249,10 +2249,21 @@ function calculateClass4(powerW, distanceFt, labor, crewSize, installationType, 
   const cl4Pairs = channels; // 1 cable pair per channel
   const cl4TotalConductors = cl4Pairs * 2;
   const shelfQty = Math.max(1, Math.ceil(channels / 9)); // each shelf holds 9 transmitters
+
+  // CL4 cabling: one physical cable bundle per receiver (each receiver accepts up to 3 channels/pairs)
   // CL4 cable pricing per foot (whole cable assembly): 1-pair=$1.10, 2-pair=$1.22, 3-pair=$1.36
-  const cl4CableRatePerFt = cl4Pairs <= 1 ? 1.10 : cl4Pairs <= 2 ? 1.22 : 1.36;
-  const cl4CableFt = distanceFt * 1.1; // cable run length with 10% slack
-  const cl4RunFt = distanceFt * 1.1; // pathway run length
+  const cableRateFor = (pairsPerCable) =>
+    pairsPerCable <= 1 ? 1.10 : pairsPerCable <= 2 ? 1.22 : 1.36;
+  const cableRuns = receiverQty;
+  const fullThreePairCables = Math.floor(channels / 3);
+  const remainderPairs = channels - fullThreePairCables * 3; // 0, 1, or 2
+  const cl4SingleRunFt = distanceFt * 1.1; // one bundle's run length with 10% slack
+  const cl4CableFt = cableRuns * cl4SingleRunFt; // total cable feet across all bundles
+  const cl4CableMaterialCost =
+    fullThreePairCables * cableRateFor(3) * cl4SingleRunFt +
+    (remainderPairs > 0 ? cableRateFor(remainderPairs) * cl4SingleRunFt : 0);
+  const cl4CableRatePerFt = cl4CableFt > 0 ? cl4CableMaterialCost / cl4CableFt : cableRateFor(1);
+  const cl4RunFt = distanceFt * 1.1; // pathway run length (single shared route)
   const pathwaySupportQty = Math.ceil(cl4RunFt / 8);
   const penetrationQty = Math.max(1, Math.ceil(distanceFt / 200));
 
@@ -2396,13 +2407,13 @@ function calculateClass4(powerW, distanceFt, labor, crewSize, installationType, 
     createLineItem({
       phase: "5) Cable Installation and Termination",
       activity: "CL4 copper cable installation",
-      description: `Install ${cl4Pairs} pair${cl4Pairs > 1 ? "s" : ""} (${cl4TotalConductors}× #16 AWG) Class 4 power conductors`,
+      description: `Install ${cableRuns} cable bundle${cableRuns > 1 ? "s" : ""} (${cl4Pairs} pair${cl4Pairs > 1 ? "s" : ""} / ${cl4TotalConductors}× #16 AWG total) — one bundle per receiver, up to 3 pairs each`,
       quantity: cl4CableFt,
       unit: "ft",
       laborUnits: 1 / 110,
       laborRate: labor.lvTech,
       laborRole: "Low Voltage Technician",
-      materials: [material(`${cl4Pairs}-pair #16 AWG CL4 cable`, cl4CableFt, "ft", cl4CableRatePerFt)],
+      materials: [material(`#16 AWG CL4 cable (${cableRuns}× bundles)`, cl4CableFt, "ft", cl4CableRatePerFt)],
       milestone: "CL4 cable installed",
     }),
     createLineItem({
