@@ -1,0 +1,56 @@
+Category,Current Tool Value,Scope Document Value,Unit,Delta,Integration Action,Priority,Multi-Dependency Impact
+,,,,,,,,
+LABOR RATE DISCREPANCIES,,,,,,,,
+Electrician,43.90,31.11,$/hr,-29%,"Update default to $31.11 per scope doc national avg; current $43.90 may include burden/overhead",High,"Feeds ALL AC line items: conduit install, cable pull, panel, termination, testing"
+LV / Fire Alarm Tech,30.77,28.51,$/hr,-7%,"Update default to $28.51; minor difference but compounds over high-hour CL2/CL4 calcs",Medium,"Feeds ALL CL2 + CL4 line items: pathway, cable, hardware, testing"
+Design / PM,51.43,51.43,$/hr,0%,No change needed — aligned,None,Feeds phases 1-2 + closeout for all architectures
+Electrical Designer / Drafter,N/A (not in tool),35.44,$/hr,NEW,"Add as new role; currently lumped into Design/PM but scope uses for BIM, panel schedules, submittals",Medium,"Affects Phase 1 (design), Phase 4 (panel directories)"
+Construction Laborer,N/A (not in tool),22.47,$/hr,NEW,"Add as new role; used for core drilling, firestopping — currently not modeled",Low,"Affects Phase 3 only (pathway penetrations, firestop)"
+,,,,,,,,
+LABOR PRODUCTIVITY RATE DISCREPANCIES,,,,,,,,
+Conduit install (feeder),0.167 (1/6),0.18,hrs/ft,+8%,"Scope confirms current rate is close; consider updating to 0.18 for feeder-class conduit",Low,Affects AC Phase 3 cost + hours
+Conduit install (branch),0.167 (1/6),0.085,hrs/ft,-49%,"Scope shows branch conduit is 2x faster than feeder — tool does not distinguish feeder vs branch",High,"If tool ever models branch circuits, must split rates"
+Cable pull (feeder),0.067 (1/15),0.12,hrs/ft,+79%,"Scope shows feeder conductors take significantly more labor (0.12 vs 0.067). Current tool underestimates AC cable labor by ~44%",High,"Directly affects AC Phase 5 labor cost — largest single cost driver"
+Cable pull (branch wiring),0.067 (1/15),0.03,hrs/ft,-55%,"Branch wiring is much faster (0.03 hrs/ft) — tool currently blends feeder and branch",Medium,Relevant if model ever distinguishes load types
+CL2/CL4 cable install,0.0091 (1/110),N/A (not in scope doc),hrs/ft,N/A,Scope doc is AC-only; CL2/CL4 rates unchanged,None,
+CL2/CL4 pathway install,0.0091 (1/110) to 0.0071 (1/140),N/A,hrs/ft,N/A,Not covered in scope doc,None,
+Lighting fixture install,N/A,0.5,hrs/ea,NEW,Not modeled — scope shows 0.5 hrs/fixture for troffers,Low,New scope category (see below)
+Floor box rough-in,N/A,1.1,hrs/ea,NEW,Not modeled — scope shows 1.1 hrs/box,Low,New scope category
+Receptacle install,N/A,0.35,hrs/ea,NEW,Not modeled — scope shows 0.35 hrs per device,Low,New scope category
+Panel install,4 + powerW/2200 (formula),10,hrs/ea (fixed),Different approach,"Scope shows fixed 10 hrs per panel regardless of size. Current tool's formula-based approach is less accurate for standard panels, more accurate for oversized",Medium,"Affects AC Phase 4; current formula gives 4.45 hrs at 1000W vs scope's 10 hrs — tool underestimates by 55%"
+Transformer install,N/A (not explicitly modeled),16,hrs/ea,NEW,Scope includes transformer as separate line item ($4500 material + 16 hrs labor),Medium,Currently buried in panel cost formula
+Breaker install,N/A (included in panel),0.15,hrs/ea,NEW,"Scope separates breaker labor (0.15 hrs/ea) from panel body; current tool lumps together",Low,
+,,,,,,,,
+MATERIAL COST DISCREPANCIES,,,,,,,,
+Feeder conduit (4" EMT),1.77 $/ft,18.00,$/ft,+917%,"CRITICAL: Scope uses 4-inch feeder conduit @ $18/ft. Tool uses generic $1.77/ft which is ¾-inch branch conduit pricing. Must differentiate feeder vs branch conduit sizing",Critical,"Massive impact on AC Phase 3. At 500ft: tool says $885 material, scope implies $9000"
+Branch conduit (3/4" EMT),1.77,0.90,$/ft,-49%,"Scope shows 3/4 EMT at $0.90/ft for branch. Tool's $1.77 is too high for branch — may be an average of feeder+branch",Medium,If model splits feeder/branch
+Feeder conductors,Uses AWG table (2.65–6.50),18.00,$/ft (3P+N+G bundle),Varies,"Scope bundles all conductors (3 phase + neutral + ground) at $18/ft total. Tool prices single conductor. At #8 ($2.80 × 5 wires = $14), tool is lower",Medium,"Affects AC Phase 5 material. Tool may need conductor count multiplier (×5 for 3P+N+G)"
+Panel + breaker assembly,1200 + 0.22×W,2500 (main) / 1200 (sub),$/ea,"Close for sub-panels, low for main",Consider tiering: main panel $2500 + subs at $1200,Medium,Affects AC Phase 4 material
+Transformer,N/A (not modeled),4500,$/ea,NEW,Add transformer as separate material when power requires step-down,Medium,Relevant for loads requiring voltage transformation
+LED troffer fixture,N/A,95,$/ea,NEW,Not in comparison tool scope,Low,New category if lighting scope added
+Floor box assembly,N/A,120,$/ea,NEW,Not in comparison tool scope,Low,New category if receptacle scope added
+Permit allowance (AC),500,500,$/lot,0%,Aligned,None,
+,,,,,,,,
+SCOPE CATEGORIES NOT YET MODELED,,,,,,,,
+Lighting (277V),Not modeled,See scope,,"Includes: fixtures ($95-$5000/ea), controls ($8000 lot), sensors ($40/ea), branch MC cable ($1.50/ft), emergency inverters ($5000/ea)",Defer — not part of power delivery comparison,Low,"If added, would significantly increase AC cost since CL4 can power lighting directly"
+General Power (receptacles/floor boxes),Not modeled,See scope,,"Includes: floor boxes ($120/ea), receptacles ($4-$5/ea), 24120 ft branch wiring, 161 breakers",Defer — same across all architectures (downstream of comparison point),None,Same cost regardless of power arch
+Mechanical Power,Not modeled,See scope,,"Disconnects ($120/ea), branch conduit/wire to HVAC equipment",Defer — not affected by power architecture choice,None,Same cost regardless of power arch
+Primary Distribution (MER→Floor),Not modeled,See scope,,"Feeder breaker ($2500), riser conduit, conductors, pull boxes, core drills, firestop",Consider adding as optional Phase 2.5 for AC architecture,Medium,"Only AC requires this; CL4/CL2 bypass MER entirely — adds $14k+ to AC if modeled"
+,,,,,,,,
+MULTI-DEPENDENCY CROSS-MAP,,,,,,,,
+powerW → conduit SIZE → conduit COST,"Currently: conduit is flat $1.77/ft regardless of power","Should be: ≤1000W = 3/4"" ($0.90), ≤2000W = 1"" ($2.50), ≤3500W = 2"" ($8.00), >3500W = 4"" ($18.00)",,,Scale conduit cost with power like cable is already scaled,Critical,"powerW drives BOTH cable gauge AND conduit size — currently only cable is modeled correctly"
+powerW → conductor COUNT,"Currently: single conductor priced","Should be: small loads (1P) = ×3 wires, larger loads (3P) = ×5 wires",,,"Add wire count multiplier: ≤2000W use 1-phase (×3), >2000W use 3-phase (×5)",High,Compounds with AWG rate to determine true cable material cost
+distanceFt → pull box count,"Not modeled","NEC requires pull boxes every ~100ft or after cumulative 360° bends. Scope shows 4 boxes for 174ft (1 per ~44ft)",,,Add pull box material: ceil(distanceFt / 100) × $250 for AC,Medium,Adds material cost that scales with distance
+distanceFt → core drill count,"Not modeled","Scope shows 6 cores for 174ft vertical+horizontal. Scales roughly 1 per 30ft of routing that crosses fire barriers",,,Optional: add penetration count as user input or estimate,Low,Adds labor + firestop material
+installationType → PRIMARY DISTRIBUTION requirement,"Not modeled","Only AC requires MER feeder run. CL2/CL4 originate from local head-end, no MER feeder needed",,,Model MER→Floor feeder as AC-only cost adder (~$14k for typical 174ft riser),High,"Major AC cost that CL2/CL4 avoid entirely — currently missing from comparison, biases tool toward AC"
+crewSize → REALISTIC crew composition,"Currently: uniform crew","Scope implies specialized crews: electricians for AC, LV techs for CL2/CL4, laborers for penetrations",,,Already partially modeled (different labor roles per arch) — no change needed,None,
+,,,,,,,,
+RECOMMENDED INTEGRATION PRIORITIES,,,,,,,,
+Priority 1 (Critical),Fix conduit cost scaling with power/size,"Current $1.77 flat rate massively underestimates AC pathway cost for anything above ¾-inch",,,,,"Increases AC cost 3-10× for Phase 3 material, widens AC vs CL4 gap"
+Priority 2 (Critical),Add conductor count multiplier,"Single-wire pricing underestimates AC cable material by 3-5×",,,,,"Increases AC Phase 5 material, further favoring CL4"
+Priority 3 (High),Update electrician rate to $31.11,"Current $43.90 overestimates AC labor; fixing this partially offsets Priority 1-2 increases",,,,,Reduces AC labor cost ~29%
+Priority 4 (High),Add MER/primary distribution as AC-only adder,"CL2/CL4 don't need MER feeder — this is a major hidden AC cost (~$14k) the tool ignores",,,,,Adds significant AC-only cost
+Priority 5 (High),Update feeder cable pull rate to 0.12 hrs/ft,"Current 1/15 (0.067) is too fast for feeder conductors per scope doc",,,,,Increases AC Phase 5 labor ~79%
+Priority 6 (Medium),Update panel install hours to 10 hrs/panel,"Current formula gives ~4.5 hrs which is half the scope doc value",,,,,Increases AC Phase 4 labor
+Priority 7 (Medium),Add transformer as explicit line item,"$4500 material + 16 hrs labor for step-down — not currently modeled",,,,,New AC Phase 4 item
+Priority 8 (Low),Add designer/drafter and laborer roles,"More accurate role-based costing for BIM, submittals, penetrations",,,,,Refines Phase 1 and Phase 3 labor

@@ -1,0 +1,11 @@
+# Excel temp files
+~$*.xlsx
+~$*.xlsm
+~$*.xls
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/

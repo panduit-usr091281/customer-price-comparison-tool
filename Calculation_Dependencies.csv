@@ -1,0 +1,231 @@
+Category,Parameter,Value,Unit,Architecture,Phase,Notes / Formula
+,,,,,,
+LABOR RATES,,,,,,
+Labor Rates,Electrician (default),31.11,$/hr,All,All,"Licensed electrician; AC conduit/cable/panel/testing"
+Labor Rates,Low Voltage Technician (default),28.51,$/hr,All,All,"LV tech; CL2/CL4 cable, pathway, hardware, submittals"
+Labor Rates,Design / PM (default),51.43,$/hr,All,"1, 2, 6","Design, permitting, AHJ, mobilization, closeout (all archs)"
+Labor Rates,Electrical Designer / Drafter (default),35.44,$/hr,Class 1 AC,"1, 5","Submittals, panel schedules/directories"
+Labor Rates,Construction Laborer (default),22.47,$/hr,All,3,"Core drilling, wall penetrations, firestop, trenching"
+Labor Rates,Wait Time (no labor cost),0,$/hr,Class 1 AC,2,"AHJ review wait — schedule duration only"
+Labor Rates,Work Day,8,hours/day,All,All,"Standard day for hours→days conversion"
+Labor Rates,Crew Divisor (install phases),crewSize,persons,All,3-6,"Install hours ÷ 8 ÷ crewSize"
+Labor Rates,Crew Divisor (design phases),1,persons,All,1-2,"Design always 1 person regardless of crewSize"
+Labor Rates,Input range,10–250,$/hr,All,Input,"Per-role user override constraint"
+,,,,,,
+INPUT CONSTRAINTS,,,,,,
+Input Constraints,Power range,10–15000,W,All,Input,"powerW lower/upper bound"
+Input Constraints,Distance range,25–5000,ft,All,Input,"distanceFt lower/upper bound"
+Input Constraints,Crew size range,1–20,persons,All,Input,
+Input Constraints,Conduit cost override range,0–50,$/ft,Class 1 AC,Input,"If > 0 used as installed (L+M) rate; sets conduit labor hrs/ft to 0"
+Input Constraints,AC conduit size (outdoor),3/4" | 1" | 1-1/4" | 2" (default) | 4",select,Class 1 AC,Input,"Only applied when installationType is outdoor or mixed; otherwise AC conduit is fixed at 2"""
+,,,,,,
+AC CABLE SIZING (electricalCableRate),,,,,,
+Cable Sizing (AC),Long-run distance threshold,300,ft,Class 1 AC,5,"distanceFt > 300 bumps one AWG size for voltage drop"
+Cable Sizing (AC),AWG #12 (≤500W short),0.35,$/conductor-ft,Class 1 AC,5,"powerW ≤ 500 AND distance ≤ 300"
+Cable Sizing (AC),AWG #10 (≤500W long OR ≤1500W short),0.45,$/conductor-ft,Class 1 AC,5,
+Cable Sizing (AC),AWG #8 (≤1500W long OR ≤3000W short),0.75,$/conductor-ft,Class 1 AC,5,
+Cable Sizing (AC),AWG #6 (≤3000W long),1.10,$/conductor-ft,Class 1 AC,5,
+Cable Sizing (AC),AWG #4 (≤5000W),1.65,$/conductor-ft,Class 1 AC,5,"No distance bump beyond #4"
+Cable Sizing (AC),AWG #1 (≤10000W),3.20,$/conductor-ft,Class 1 AC,5,
+Cable Sizing (AC),AWG 4/0 (>10000W),5.50,$/conductor-ft,Class 1 AC,5,
+Cable Sizing (AC),Conductor count (1-phase ≤2000W),3,wires,Class 1 AC,5,"Hot + Neutral + Ground"
+Cable Sizing (AC),Conductor count (3-phase >2000W),5,wires,Class 1 AC,5,"3 Phase + Neutral + Ground"
+Cable Sizing (AC),Cable length factor,1.18,× distance,Class 1 AC,5,"cableFt = distanceFt × 1.18 (slack/termination)"
+,,,,,,
+AC CONDUIT SIZING (conduitRate — always 2" unless outdoor override),,,,,,
+Conduit Sizing (AC),Default size (all power tiers),"2""",size,Class 1 AC,3,"AC conduit is fixed at 2"" by default for indoor and standard installations"
+Conduit Sizing (AC),Outdoor override,outdoorConduitSize input,select,Class 1 AC,3,"When installationType is outdoor or mixed, user may pick 3/4"" | 1"" | 1-1/4"" | 2"" | 4"""
+Conduit Sizing (AC),"3/4"" EMT (rate)",0.90,$/ft material,Class 1 AC,3,"Labor 0.06 hrs/ft"
+Conduit Sizing (AC),"1"" EMT (rate)",1.50,$/ft material,Class 1 AC,3,"Labor 0.08 hrs/ft"
+Conduit Sizing (AC),"1-1/4"" EMT (rate)",2.50,$/ft material,Class 1 AC,3,"Labor 0.10 hrs/ft"
+Conduit Sizing (AC),"2"" EMT (rate, default)",4.50,$/ft material,Class 1 AC,3,"Labor 0.14 hrs/ft"
+Conduit Sizing (AC),"4"" EMT/IMC (rate)",18.00,$/ft material,Class 1 AC,3,"Labor 0.22 hrs/ft"
+Conduit Sizing (AC),Conduit length factor,1.15,× distance,Class 1 AC,3,"conduitFt = distanceFt × 1.15"
+Conduit Sizing (AC),Pull box / junction box count,max(0; ceil(conduitFt/100) − 1),ea,Class 1 AC,3,"NEC pull-box rule"
+Conduit Sizing (AC),Pull box material,250,$/ea,Class 1 AC,3,
+Conduit Sizing (AC),Pull box install,1.75,hrs/ea,Class 1 AC,3,
+Conduit Sizing (AC),Core drill / wall penetration count,max(1; ceil(distanceFt/150)),ea,Class 1 AC,3,"Combined penetration + firestop"
+Conduit Sizing (AC),Core drill + firestop material,75,$/ea,Class 1 AC,3,
+Conduit Sizing (AC),Core drill + firestop labor,1.6,hrs/ea,Class 1 AC,3,"Construction Laborer rate"
+,,,,,,
+CLASS 2 SIZING (calculateClass2),,,,,,
+Class 2 Sizing,Distance hard cap (clamp),1750,ft,Class 2 DC,All,"cl2Dist = min(distanceFt; 1750); fit=bad if input > 1750"
+Class 2 Sizing,System voltage,60,VDC,Class 2 DC,All,"60V source; 45V min at load = 15V max drop"
+Class 2 Sizing,Watts per pair,100,W/pair,Class 2 DC,All,"pairs = ceil(powerW/100)"
+Class 2 Sizing,Current per pair (full load),1.667,A,Class 2 DC,All,"100W / 60V"
+Class 2 Sizing,Conductors per pair,2,wires,Class 2 DC,All,
+Class 2 Sizing,AWG #18 (≤300 ft),0.20,$/pair-ft,Class 2 DC,5,"0.006385 Ω/ft"
+Class 2 Sizing,AWG #16 (≤550 ft),0.33,$/pair-ft,Class 2 DC,5,"0.004016 Ω/ft"
+Class 2 Sizing,AWG #14 (≤900 ft),0.55,$/pair-ft,Class 2 DC,5,"0.002525 Ω/ft"
+Class 2 Sizing,AWG #12 (>900 ft up to 1750 ft),0.70,$/pair-ft,Class 2 DC,5,"0.001588 Ω/ft"
+Class 2 Sizing,Cable material qty,pairs × cl2Dist × 1.10,ft,Class 2 DC,5,"cablePairFt — billed as pair-feet"
+Class 2 Sizing,Pathway length factor,1.05,× distance,Class 2 DC,3,"pathwayFt = cl2Dist × 1.05"
+Class 2 Sizing,Pull groups (efficiency),ceil(totalConductors/8),groups,Class 2 DC,5,"≤8 conductors per simultaneous pull"
+Class 2 Sizing,Pull labor base rate,1/110,hrs/ft,Class 2 DC,5,"Per-group rate; multiplied by efficiency factor"
+Class 2 Sizing,Pull efficiency factor,max(0.55; 1 − (avgCondPerPull − 1)×0.057),fraction,Class 2 DC,5,"Decreases with more conductors per pull (8 ≈ 0.60)"
+Class 2 Sizing,DC hub sizing,max(1; ceil(powerW/300)),ea,Class 2 DC,4,"$520/ea, 0.5 hrs/ea (LV Tech)"
+Class 2 Sizing,Injector qty,pairs,ea,Class 2 DC,4,"$160/ea, 0.25 hrs/ea (LV Tech)"
+Class 2 Sizing,J-hook spacing,6,ft/hook,Class 2 DC,3,"jHookQty = ceil(pathwayFt / 6); $4.50/ea"
+Class 2 Sizing,Pathway install rate,1/110,hrs/ft,Class 2 DC,3,"LV Tech"
+Class 2 Sizing,Penetration count,max(1; ceil(cl2Dist/200)),ea,Class 2 DC,3,"$45/ea material; 0.85 hrs/ea (Construction Laborer)"
+,,,,,,
+CLASS 4 SIZING (calculateClass4),,,,,,
+Class 4 Sizing,System voltage,450,VDC,Class 4 FMP,All,
+Class 4 Sizing,Current per pair (Class 4 limit),2.8,A,Class 4 FMP,All,
+Class 4 Sizing,System efficiency,0.92,fraction,Class 4 FMP,All,
+Class 4 Sizing,Cable AWG (always),16,AWG,Class 4 FMP,5,"Fixed; 0.004016 Ω/ft"
+Class 4 Sizing,Voltage drop calc,I × 2 × 0.004016 × distanceFt,V,Class 4 FMP,All,"Pair-loop drop"
+Class 4 Sizing,Effective voltage (with floor),max(450 × 0.8; 450 − Vdrop),V,Class 4 FMP,All,"Min 80% of source"
+Class 4 Sizing,Watts per pair (effective),Veff × 2.8 × 0.92,W,Class 4 FMP,All,
+Class 4 Sizing,Pair count,max(1; ceil(powerW/wattsPerPair)),pairs,Class 4 FMP,All,"Distance-derated"
+Class 4 Sizing,Cable rate (1 pair),1.10,$/cable-ft,Class 4 FMP,5,"Whole assembly"
+Class 4 Sizing,Cable rate (2 pairs),1.22,$/cable-ft,Class 4 FMP,5,
+Class 4 Sizing,Cable rate (3+ pairs),1.36,$/cable-ft,Class 4 FMP,5,
+Class 4 Sizing,Cable length factor,1.10,× distance,Class 4 FMP,5,"cl4CableFt = distanceFt × 1.10 (run length)"
+Class 4 Sizing,Pathway length factor,1.10,× distance,Class 4 FMP,3,"cl4RunFt = distanceFt × 1.10"
+Class 4 Sizing,Pathway install rate,1/140,hrs/ft,Class 4 FMP,3,"LV Tech"
+Class 4 Sizing,Pathway support spacing,8,ft/support,Class 4 FMP,3,"supports = ceil(cl4RunFt/8); $4.50/ea"
+Class 4 Sizing,Cable install rate,1/110,hrs/ft,Class 4 FMP,5,"LV Tech"
+Class 4 Sizing,Channel sizing,max(1; ceil(powerW/1300)),ch,Class 4 FMP,4,"Head-end channel allocation; $2600/ch; 1.5 hrs/ch"
+Class 4 Sizing,Receiver sizing,max(1; ceil(powerW/1500)),ea,Class 4 FMP,4,"$1650/ea; 1.0 hrs/ea"
+Class 4 Sizing,Penetration count,max(1; ceil(distanceFt/200)),ea,Class 4 FMP,3,"$45/ea material; 0.85 hrs/ea (Construction Laborer)"
+,,,,,,
+TRENCHING (trenchingSpec) — uses LOW end of published production-rate ranges,,,,,,
+Trenching,Applies when,installationType ∈ {outdoor; mixed} AND outdoorType ∈ {direct-bury; conduit-bury; underground-duct},rule,All,3,"Returns null otherwise (no trenching line item)"
+Trenching,LV depth (CL2 / CL4),18–24,inches,Class 2 + Class 4,3,"Low-voltage trench class"
+Trenching,Power depth (Class 1 AC),30–36,inches,Class 1 AC,3,"Higher cover for power conductors"
+Trenching,LV — micro-trench (18"),20.00,$/ft,Class 2 + Class 4,3,"0.15 min/ft labor (low-end production); range $20–$60/ft"
+Trenching,LV — direct-bury (24"),12.00,$/ft,Class 2 + Class 4,3,"0.5 min/ft (low-end); range $12–$30/ft; selected when outdoorType=direct-bury"
+Trenching,"LV — 1/2"" conduit (24"")",15.00,$/ft,Class 2 + Class 4,3,"0.7 min/ft (low-end); range $15–$35/ft"
+Trenching,"LV — 1"" conduit (24"")",18.00,$/ft,Class 2 + Class 4,3,"0.9 min/ft (low-end); range $18–$40/ft; selected when outdoorType=conduit-bury"
+Trenching,"LV — 2"" duct (24"")",22.00,$/ft,Class 2 + Class 4,3,"1.5 min/ft (low-end); range $22–$50/ft; selected when outdoorType=underground-duct"
+Trenching,Power — direct-bury (36"),18.00,$/ft,Class 1 AC,3,"0.5 min/ft (low-end); range $18–$45/ft; selected when outdoorType=direct-bury"
+Trenching,"Power — 1"" conduit (36"")",25.00,$/ft,Class 1 AC,3,"0.9 min/ft (low-end); range $25–$60/ft; selected when AC conduit size ∈ {3/4""; 1""}"
+Trenching,"Power — 2"" conduit (36"")",30.00,$/ft,Class 1 AC,3,"1.5 min/ft (low-end); range $30–$75/ft; selected when AC conduit size ∈ {1-1/4""; 2""}"
+Trenching,"Power — 4"" conduit (36"")",45.00,$/ft,Class 1 AC,3,"2.5 min/ft (low-end); range $45–$120/ft; selected when AC conduit size = 4"""
+Trenching,Trench quantity (AC),conduitFt,ft,Class 1 AC,3,"Uses conduitFt (distanceFt × 1.15)"
+Trenching,Trench quantity (CL2/CL4),pathwayFt or cl4RunFt,ft,Class 2 + Class 4,3,"Uses pathway run length × 1.05 or 1.10"
+Trenching,Trench labor role,Construction Laborer,$22.47/hr,All,3,
+Trenching,Cost-per-ft reference,appended to line-item description,UI display,All,3,"e.g. ""...backfill @ $18/ft (low-range reference)"""
+,,,,,,
+ROUTING MULTIPLIERS (getRoutingCostMultiplier),,,,,,
+Routing Multipliers,Indoor (baseline),1.00,multiplier,All,3 & 5,"No installType base adjustment"
+Routing Multipliers,Outdoor (base),1.35,multiplier,All,3 & 5,"installType base"
+Routing Multipliers,Mixed (base),1.15,multiplier,All,3 & 5,"installType base"
+Routing Multipliers,Indoor — IDF/Conduit,1.00,multiplier,All,3 & 5,"Indoor or mixed only"
+Routing Multipliers,Indoor — Plenum Space,1.20,multiplier,All,3 & 5,"Plenum-rated materials premium"
+Routing Multipliers,Indoor — Open Cable Tray,0.85,multiplier,All,3 & 5,
+Routing Multipliers,Indoor — J-Hooks on Beam,0.90,multiplier,All,3 & 5,
+Routing Multipliers,Indoor — Surface Mount,0.80,multiplier,All,3 & 5,
+Routing Multipliers,Outdoor — Direct Bury,1.05,multiplier,All,3 & 5,"Reduced (trenching is now its own line item)"
+Routing Multipliers,Outdoor — Conduit Buried,1.08,multiplier,All,3 & 5,"Reduced (trenching is now its own line item)"
+Routing Multipliers,Outdoor — Aerial / Pole-Mount,0.95,multiplier,All,3 & 5,
+Routing Multipliers,Outdoor — Underground Duct,1.10,multiplier,All,3 & 5,"Reduced (trenching is now its own line item)"
+Routing Multipliers,Architecture reduction (CL2 / CL4),50%,of (mult − 1),Class 2 + Class 4,3 & 5,"CL2/CL4 mult = 1 + (acMult − 1) × 0.5"
+,,,,,,
+END DEVICE MULTIPLIERS (getEndDeviceCostMultiplier),,,,,,
+End Device Multipliers,Network Switch,1.10,multiplier,All,4,"Phase 4 only (equipment)"
+End Device Multipliers,Media Converter,1.05,multiplier,All,4,
+End Device Multipliers,Direct to Device,1.00,multiplier,All,4,
+,,,,,,
+MULTIPLIER APPLICATION SCOPE (applyInputMultipliers),,,,,,
+Multiplier Scope,Routing multiplier applies to,phases 3 & 5,scope,All,3 & 5,"Pathway/distribution and cable/termination"
+Multiplier Scope,End-device multiplier applies to,phase 4,scope,All,4,"Equipment only"
+Multiplier Scope,Reconciliation,row.lineTotal mutated,behavior,All,All,"Material/labor/lineTotal scaled per row so phase totals reconcile with scenario total"
+,,,,,,
+AC TIER LOGIC (calculateAC),,,,,,
+AC Tiers,Simple tier,distanceFt < 260 AND powerW < 2000,rule,Class 1 AC,All,"Receptacle + branch conduit; reduced design/test/closeout"
+AC Tiers,Full buildout tier,powerW > 10000 OR distanceFt > 800,rule,Class 1 AC,All,"New panelboard + transformer + feeder breaker in MER"
+AC Tiers,Standard tier,not Simple AND not Full,rule,Class 1 AC,All,"Breaker in existing panel only"
+AC Tiers,Simple — design hrs,12,hrs,Class 1 AC,1,"Fixed (Design/PM)"
+AC Tiers,Standard / Full — design hrs,max(14; 6 + distanceFt/500 + powerW/1800),hrs,Class 1 AC,1,"Design/PM"
+AC Tiers,Standard — submittals hrs,10,hrs,Class 1 AC,1,"Designer; Simple omits"
+AC Tiers,Full — submittals hrs,12,hrs,Class 1 AC,1,
+AC Tiers,Simple — permit hrs,8,hrs,Class 1 AC,2,"$150 permit allowance"
+AC Tiers,Standard / Full — permit hrs,max(16; 8 + distanceFt/1000),hrs,Class 1 AC,2,"$500 permit allowance"
+AC Tiers,Preconstruction survey,5,hrs (lot),Class 1 AC,2,"All tiers; Design/PM"
+AC Tiers,AHJ review wait,max(84; 60 + distanceFt/500),hrs,Class 1 AC,2,"Standard/Full only; labor rate = 0 (schedule duration only)"
+AC Tiers,Mobilization (Standard),12,hrs,Class 1 AC,2,
+AC Tiers,Mobilization (Full),16,hrs,Class 1 AC,2,
+AC Tiers,Simple — conduit install rate,0.05,hrs/ft,Class 1 AC,3,"Branch conduit (faster than feeder)"
+AC Tiers,Standard / Full — conduit install rate,per conduitRate(powerW),hrs/ft,Class 1 AC,3,"0.06–0.22 by size"
+AC Tiers,Simple — equipment,Receptacle + breaker $45,lot,Class 1 AC,4,"1.5 hrs install (Electrician)"
+AC Tiers,Standard — equipment,Breaker only,ea,Class 1 AC,4,"$30 (≤2000W) or $250; 3 hrs install"
+AC Tiers,Full — Panelboard,$1200 (≤5000W) / $2500 (>5000W),ea,Class 1 AC,4,"10 hrs install"
+AC Tiers,Full — Transformer,4500,$/ea,Class 1 AC,4,"16 hrs install"
+AC Tiers,Full — Feeder breaker,2500,$/ea,Class 1 AC,4,"6 hrs install"
+AC Tiers,Cable pull rate (Simple),0.03,hrs/ft,Class 1 AC,5,"Branch conductors"
+AC Tiers,Cable pull rate (Standard ≤5000W),0.04,hrs/ft,Class 1 AC,5,
+AC Tiers,Cable pull rate (>5000W),0.06,hrs/ft,Class 1 AC,5,"Heavy feeders"
+AC Tiers,Termination (Simple),1.5,hrs (lot),Class 1 AC,5,"$35 labels/consumables"
+AC Tiers,Termination (Standard / Full),4 + powerW/3000,hrs (lot),Class 1 AC,5,"$250 labels/consumables"
+AC Tiers,Panel directories (Standard),4,hrs (lot),Class 1 AC,5,"Designer; Simple omits"
+AC Tiers,Panel directories (Full),8,hrs (lot),Class 1 AC,5,
+AC Tiers,Simple — testing,2,hrs (lot),Class 1 AC,6,"Circuit verification + closeout"
+AC Tiers,Standard — Megger / insulation,4,hrs (lot),Class 1 AC,6,"$80 testing consumables"
+AC Tiers,Full — Megger / insulation,12,hrs (lot),Class 1 AC,6,
+AC Tiers,Full — Torque verification,8,hrs (lot),Class 1 AC,6,"Standard omits"
+AC Tiers,Standard — Functional perf testing,4,hrs (lot),Class 1 AC,6,
+AC Tiers,Full — Functional perf testing,10,hrs (lot),Class 1 AC,6,
+AC Tiers,Standard — Closeout / handoff,8,hrs (lot),Class 1 AC,6,"Design/PM"
+AC Tiers,Full — Closeout / handoff,18,hrs (lot),Class 1 AC,6,"Design/PM"
+AC Tiers,Full — Punchlist,16,hrs (lot),Class 1 AC,6,"Design/PM; Standard omits"
+AC Tiers,Grounding and bonding,4,hrs + $200 lot,Class 1 AC,3,"Standard/Full only"
+,,,,,,
+CL2 LABOR PRODUCTIVITY (calculateClass2),,,,,,
+Labor Productivity (CL2),Design — base + per-pair,4 + pairs × 0.4,hrs (lot),Class 2 DC,1,"Design/PM"
+Labor Productivity (CL2),Submittals,4,hrs (lot),Class 2 DC,1,"LV Tech"
+Labor Productivity (CL2),Preconstruction survey,3 + cl2Dist/1200,hrs (lot),Class 2 DC,2,"Design/PM"
+Labor Productivity (CL2),AHJ package,3,hrs (lot),Class 2 DC,2,"Design/PM; $250 permit allowance"
+Labor Productivity (CL2),Mobilization,6,hrs (lot),Class 2 DC,2,"Design/PM"
+Labor Productivity (CL2),Termination,1.5 + pairs × 0.3,hrs (lot),Class 2 DC,5,"LV Tech; $95 connectors lot"
+Labor Productivity (CL2),Cable management / labeling,1 + pairs × 0.15,hrs (lot),Class 2 DC,5,"LV Tech; $65 labels lot"
+Labor Productivity (CL2),Certification & load testing,2 + pairs × 0.15,hrs (lot),Class 2 DC,6,"LV Tech; $65 testing consumables"
+Labor Productivity (CL2),Functional performance verification,2,hrs (lot),Class 2 DC,6,"LV Tech"
+Labor Productivity (CL2),Closeout / owner handoff,4,hrs (lot),Class 2 DC,6,"Design/PM"
+Labor Productivity (CL2),Punchlist,4,hrs (lot),Class 2 DC,6,"Design/PM"
+,,,,,,
+CL4 LABOR PRODUCTIVITY (calculateClass4),,,,,,
+Labor Productivity (CL4),Design — base + per-distance,5 + distanceFt/600,hrs (lot),Class 4 FMP,1,"Design/PM"
+Labor Productivity (CL4),Submittals,4,hrs (lot),Class 4 FMP,1,"LV Tech"
+Labor Productivity (CL4),Preconstruction survey,2,hrs (lot),Class 4 FMP,2,"Design/PM"
+Labor Productivity (CL4),AHJ package,3.5,hrs (lot),Class 4 FMP,2,"Design/PM; $350 permit allowance"
+Labor Productivity (CL4),Mobilization,6,hrs (lot),Class 4 FMP,2,"Design/PM"
+Labor Productivity (CL4),Head-end install,1.5,hrs/ch,Class 4 FMP,4,"LV Tech"
+Labor Productivity (CL4),Receiver install,1.0,hrs/ea,Class 4 FMP,4,"LV Tech"
+Labor Productivity (CL4),Termination,2 + channels × 0.3,hrs (lot),Class 4 FMP,5,"LV Tech; $180 termination kit"
+Labor Productivity (CL4),Cable management / labeling,1.5,hrs (lot),Class 4 FMP,5,"LV Tech; $65 labels lot"
+Labor Productivity (CL4),Power-up / fault validation,2 + channels × 0.8,hrs (lot),Class 4 FMP,6,"LV Tech; $90 testing consumables"
+Labor Productivity (CL4),Functional performance verification,2 + channels × 0.4,hrs (lot),Class 4 FMP,6,"LV Tech"
+Labor Productivity (CL4),Closeout / owner handoff,6,hrs (lot),Class 4 FMP,6,"Design/PM"
+Labor Productivity (CL4),Punchlist,4,hrs (lot),Class 4 FMP,6,"Design/PM"
+,,,,,,
+FIT / SUITABILITY RULES,,,,,,
+Fit/Suitability Rules,AC — strong fit (good),distanceFt ≤ 150 OR powerW > 10000,rule,Class 1 AC,Assessment,"Short distance or very high power"
+Fit/Suitability Rules,AC — warning,distanceFt > 150 AND powerW ≤ 10000,rule,Class 1 AC,Assessment,"Higher cost/time as distance grows"
+Fit/Suitability Rules,CL2 — strong fit (good),powerW ≤ 100 AND distanceFt ≤ 300,rule,Class 2 DC,Assessment,
+Fit/Suitability Rules,CL2 — warning,(powerW > 100 OR distanceFt > 300) AND distanceFt ≤ 1750,rule,Class 2 DC,Assessment,
+Fit/Suitability Rules,CL2 — bad / not applicable,distanceFt > 1750,rule,Class 2 DC,Assessment,"Red badge; distance silently clamped to 1750 in calc"
+Fit/Suitability Rules,CL4 — strong fit (good),powerW ≤ 4500,rule,Class 4 FMP,Assessment,
+Fit/Suitability Rules,CL4 — warning,powerW > 4500,rule,Class 4 FMP,Assessment,"Above 4.5 kW may require AC"
+,,,,,,
+SUMMARIZATION (summarize),,,,,,
+Summarize,Phase classification — design,"phases 1–2",set,All,1-2,"DESIGN_PHASES set; not divided by crewSize"
+Summarize,Phase classification — install,"phases 3–6",set,All,3-6,"Divided by crewSize"
+Summarize,Design days,designHours / 8,days,All,1-2,
+Summarize,Install days,installHours / 8 / crewSize,days,All,3-6,
+Summarize,Total days,designDays + installDays,days,All,All,"Sequential design + parallel install"
+Summarize,Line total,materialCost + laborCost,$,All,All,"Per row"
+Summarize,Material cost,sum(qty × unitCost),$,All,All,"Per row"
+Summarize,Labor cost,laborHours × laborRate,$,All,All,"Per row"
+,,,,,,
+ASSUMPTIONS,,,,,,
+Assumptions,Single-site comparison,1,site,All,All,"All costs are for one site"
+Assumptions,No contingency / markup,0,%,All,All,"Base estimates only"
+Assumptions,No sales tax,0,%,All,All,
+Assumptions,Single design revision cycle,1,cycle,All,1,
+Assumptions,AHJ wait time has $0 cost,true,boolean,Class 1 AC,2,"Affects schedule duration only"
+Assumptions,Conduit override zeros conduit labor,true,boolean,Class 1 AC,3,"User-provided installed cost = labor + materials"
+Assumptions,CL2 distance silently clamped to 1750ft for calc,true,boolean,Class 2 DC,All,"UI displays red 'not applicable' badge above limit"
+Assumptions,Trenching is a separate line item,true,boolean,All,3,"Outdoor routing multipliers reduced accordingly (1.05–1.10× vs prior 1.25–1.50×)"
+Assumptions,Tool models source-to-endpoint delivery only,true,boolean,All,All,"Does NOT model floor downstream distribution (lighting/receptacles/HVAC)"

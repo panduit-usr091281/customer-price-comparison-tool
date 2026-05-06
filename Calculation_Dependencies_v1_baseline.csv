@@ -1,0 +1,217 @@
+Category,Parameter,Value,Unit,Architecture,Phase,Notes / Formula
+Labor Rates,Electrician (default),31.11,$/hr,All,All,"Licensed electrician; used for AC conduit, cable, panel, testing (scope-verified national avg)"
+Labor Rates,Low Voltage Technician (default),28.51,$/hr,All,All,"LV tech; used for Class 2 and Class 4 cable, pathway, hardware (scope-verified)"
+Labor Rates,Design / PM (default),51.43,$/hr,All,All,"Design, permitting, closeout across all architectures"
+Labor Rates,Electrical Designer / Drafter (default),35.44,$/hr,Class 1 AC,Phases 1 & 5,"BIM, submittals, coordination drawings, panel schedules"
+Labor Rates,Construction Laborer (default),22.47,$/hr,Class 1 AC,Phase 3,"Core drilling, firestopping penetrations"
+Labor Rates,Work Day,8,hours/day,All,All,Standard day for converting hours to calendar days
+Labor Rates,Crew Divisor (install phases),crewSize (user input),persons,All,Phases 3-6,Install hours divided by crew size to get calendar days
+Labor Rates,Crew Divisor (design phases),1,persons,All,Phases 1-2,Design phases always 1 person regardless of crew size
+,,,,,,
+Cable Sizing (AC),AWG #12 threshold,≤500W (short run ≤300ft),,Class 1 AC,Phase 5,"$0.35/conductor; bumps to #10 if >300ft"
+Cable Sizing (AC),AWG #10 threshold,"≤500W long OR ≤1500W short",,Class 1 AC,Phase 5,"$0.45/conductor"
+Cable Sizing (AC),AWG #8 threshold,"≤1500W long OR ≤3000W short",,Class 1 AC,Phase 5,"$0.75/conductor"
+Cable Sizing (AC),AWG #6 threshold,≤3000W (long run),,Class 1 AC,Phase 5,"$1.10/conductor"
+Cable Sizing (AC),AWG #4 threshold,≤5000W,,Class 1 AC,Phase 5,"$1.65/conductor"
+Cable Sizing (AC),AWG #1 threshold,≤10000W,,Class 1 AC,Phase 5,"$3.20/conductor"
+Cable Sizing (AC),AWG 4/0 threshold,>10000W,,Class 1 AC,Phase 5,"$5.50/conductor (fallback for largest loads)"
+Cable Sizing (AC),Long run distance threshold,300,ft,Class 1 AC,Phase 5,"Distances >300ft bump one AWG size for voltage drop"
+Cable Sizing (AC),Conductor count (1-phase ≤2000W),3,wires,Class 1 AC,Phase 5,"Hot + Neutral + Ground"
+Cable Sizing (AC),Conductor count (3-phase >2000W),5,wires,Class 1 AC,Phase 5,"3 Phase + Neutral + Ground"
+,,,,,,
+Conduit Sizing (AC),"3/4"" EMT (≤1000W)",0.90,$/ft material,Class 1 AC,Phase 3,"Labor: 0.06 hrs/ft (~16 ft/hr)"
+Conduit Sizing (AC),"1"" EMT (≤2000W)",1.50,$/ft material,Class 1 AC,Phase 3,"Labor: 0.08 hrs/ft (~12 ft/hr)"
+Conduit Sizing (AC),"1-1/4"" EMT (≤5000W)",2.50,$/ft material,Class 1 AC,Phase 3,"Labor: 0.10 hrs/ft (~10 ft/hr)"
+Conduit Sizing (AC),"2"" EMT (≤10000W)",4.50,$/ft material,Class 1 AC,Phase 3,"Labor: 0.14 hrs/ft (~7 ft/hr)"
+Conduit Sizing (AC),"4"" EMT/IMC (>10000W)",18.00,$/ft material,Class 1 AC,Phase 3,"Labor: 0.22 hrs/ft (~4.5 ft/hr); scope-verified from feeder conduit pricing"
+Conduit Sizing (AC),Pull box count,ceil(conduitFt/100) - 1,ea,Class 1 AC,Phase 3,"NEC requirement per 100ft; $250/ea material"
+Conduit Sizing (AC),Core drill count,ceil(distanceFt/150),ea,Class 1 AC,Phase 3,"Fire barrier penetrations; 1.6 hrs labor + $75 material each"
+,,,,,,
+Distance Multipliers,AC conduit length factor,1.15,x distance,Class 1 AC,Phase 3,"conduitFt = distanceFt * 1.15 (bends, fittings)"
+Distance Multipliers,AC cable length factor,1.18,x distance,Class 1 AC,Phase 5,"cableFt = distanceFt * 1.18 (slack, termination)"
+Distance Multipliers,CL2 pathway length factor,1.05,x distance,Class 2 DC,Phase 3,pathwayFt = distanceFt * 1.05
+Distance Multipliers,CL2 cable length factor,1.10,x distance per run,Class 2 DC,Phase 5,"cableFt = runs * distanceFt * 1.1 (per run, with slack)"
+Distance Multipliers,CL4 cable length factor,1.10,x distance,Class 4 FMP,Phase 5,cl4CableFt = distanceFt * 1.1
+Distance Multipliers,CL4 fiber length factor,1.10,x distance,Class 4 FMP,Phase 5,fiberFt = distanceFt * 1.1
+,,,,,,
+Class 2 Sizing,Effective watts per run,90,W/run,Class 2 DC,All,runs = ceil(powerW / 90)
+Class 2 Sizing,DC hub sizing,300,W/hub,Class 2 DC,Phase 4,dcHubQty = ceil(powerW / 300)
+Class 2 Sizing,J-hook spacing,6,ft/hook,Class 2 DC,Phase 3,jHookQty = pathwayFt / 6
+,,,,,,
+Class 4 Sizing,Channel capacity,1300,W/channel,Class 4 FMP,Phase 4,channels = ceil(powerW / 1300)
+Class 4 Sizing,Receiver capacity,1500,W/receiver,Class 4 FMP,Phase 4,receiverQty = ceil(powerW / 1500)
+Class 4 Sizing,Pathway support spacing,8,ft/support,Class 4 FMP,Phase 3,supports = cl4CableFt / 8
+,,,,,,
+Material Costs (AC),"Feeder conduit (power-scaled)",0.90 – 18.00,$/ft,Class 1 AC,Phase 3,"See Conduit Sizing table; scales with powerW"
+Material Costs (AC),Pull boxes / junction cabinets,250,$/ea,Class 1 AC,Phase 3,"Qty = ceil(conduitFt/100) - 1"
+Material Costs (AC),Core drill + firestop materials,75,$/ea,Class 1 AC,Phase 3,"Qty = ceil(distanceFt/150)"
+Material Costs (AC),Grounding and bonding materials,200,$ (lot),Class 1 AC,Phase 3,
+Material Costs (AC),"Panelboard assembly (≤2000W)",1200,$ (lot),Class 1 AC,Phase 4,"Sub-panel tier (scope Row 26-29: 225A class panels)"
+Material Costs (AC),"Panelboard assembly (>2000W)",2500,$ (lot),Class 1 AC,Phase 4,"Main panel tier (scope Row 24: 400A class 480/277V)"
+Material Costs (AC),"Dry-type transformer",4500,$/ea,Class 1 AC,Phase 4,"Scope Row 25: V48M28T7516 dry-type 480→208/120; when powerW > 500"
+Material Costs (AC),Feeder breaker assembly,2500,$/ea,Class 1 AC,Phase 4,"Scope Row 13: In MER source gear (size/series per gear)"
+Material Costs (AC),Labeling and consumables,250,$ (lot),Class 1 AC,Phase 5,"Scope Row 22: Label feeder, pull boxes, panels per labeling standard"
+Material Costs (AC),Testing consumables,80,$ (lot),Class 1 AC,Phase 6,
+Material Costs (AC),Permit allowance,500,$ (lot),Class 1 AC,Phase 2,"Scope Row 11: Permit fees (allowance)"
+,,,,,,
+Material Costs (CL2),J-hooks and pathway supports,4.50,$/ea,Class 2 DC,Phase 3,
+Material Costs (CL2),Injectors,160,$/ea,Class 2 DC,Phase 4,Qty = runs
+Material Costs (CL2),DC hubs,520,$/ea,Class 2 DC,Phase 4,Qty = ceil(powerW / 300)
+Material Costs (CL2),Class 2 cable,0.65,$/ft,Class 2 DC,Phase 5,
+Material Costs (CL2),Labels and small parts,95,$ (lot),Class 2 DC,Phase 5,
+Material Costs (CL2),Testing consumables,65,$ (lot),Class 2 DC,Phase 6,
+Material Costs (CL2),Permit allowance,250,$ (lot),Class 2 DC,Phase 2,
+,,,,,,
+Material Costs (CL4),Pathway supports,4.50,$/ea,Class 4 FMP,Phase 3,
+Material Costs (CL4),Head-end channel allocation,2600,$/channel,Class 4 FMP,Phase 4,Qty = channels
+Material Costs (CL4),Class 4 receiver,1650,$/ea,Class 4 FMP,Phase 4,Qty = receiverQty
+Material Costs (CL4),CL4 cable,1.96,$/ft,Class 4 FMP,Phase 5,
+Material Costs (CL4),Fiber backbone cable,0.35,$/ft,Class 4 FMP,Phase 5,
+Material Costs (CL4),Fiber connectors and accessories,240,$ (lot),Class 4 FMP,Phase 5,
+Material Costs (CL4),Test equipment consumables,90,$ (lot),Class 4 FMP,Phase 6,
+Material Costs (CL4),Permit allowance,350,$ (lot),Class 4 FMP,Phase 2,
+,,,,,,
+Labor Productivity (AC),Design - base hours,6,hrs,Class 1 AC,Phase 1,"Formula: 6 + distanceFt/500 + powerW/1800"
+Labor Productivity (AC),Design - distance adder,1/500,hrs/ft,Class 1 AC,Phase 1,
+Labor Productivity (AC),Design - power adder,1/1800,hrs/W,Class 1 AC,Phase 1,
+Labor Productivity (AC),Submittals and coordination,10,hrs (fixed),Class 1 AC,Phase 1,"Designer/Drafter role at $35.44/hr"
+Labor Productivity (AC),Permitting - base hours,8,hrs,Class 1 AC,Phase 2,"Formula: 8 + distanceFt/1000 (updated from scope)"
+Labor Productivity (AC),Permitting - distance adder,1/1000,hrs/ft,Class 1 AC,Phase 2,
+Labor Productivity (AC),Mobilization and safety,12,hrs (fixed),Class 1 AC,Phase 2,"Project admin allowance"
+Labor Productivity (AC),Feeder conduit install rate,0.06–0.22,hrs/ft (varies by size),Class 1 AC,Phase 3,"3/4""=0.06, 1""=0.08, 1-1/4""=0.10, 2""=0.14, 4""=0.22"
+Labor Productivity (AC),Simple conduit install rate,0.05,hrs/ft,Class 1 AC,Phase 3,"Simple tier (< 260ft, < 2000W) branch conduit"
+Labor Productivity (AC),Pull box install rate,1.75,hrs/ea,Class 1 AC,Phase 3,"Per junction cabinet"
+Labor Productivity (AC),Core drilling + firestop rate,1.6,hrs/ea,Class 1 AC,Phase 3,"Construction laborer at $22.47/hr"
+Labor Productivity (AC),Grounding and bonding,4,hrs (fixed),Class 1 AC,Phase 3,
+Labor Productivity (AC),Panel install,10,hrs/panel,Class 1 AC,Phase 4,"Scope-verified: fixed 10 hrs regardless of size"
+Labor Productivity (AC),Transformer install,16,hrs/ea,Class 1 AC,Phase 4,"When powerW > 500; scope-verified"
+Labor Productivity (AC),Feeder breaker install,6,hrs/ea,Class 1 AC,Phase 4,"Install in MER source gear"
+Labor Productivity (AC),Cable pull rate (feeder),0.04,hrs/ft,Class 1 AC,Phase 5,"~25 ft/hr standard pull; 0.06 hrs/ft for >5000W heavy feeders"
+Labor Productivity (AC),Cable pull rate (simple branch),0.03,hrs/ft,Class 1 AC,Phase 5,"Simple tier branch wiring"
+Labor Productivity (AC),Termination - base hours,4,hrs,Class 1 AC,Phase 5,"Formula: 4 + powerW/3000 (updated from scope)"
+Labor Productivity (AC),Termination - power adder,1/3000,hrs/W,Class 1 AC,Phase 5,
+Labor Productivity (AC),Panel schedules/directories,6,hrs,Class 1 AC,Phase 5,"Designer/Drafter role"
+Labor Productivity (AC),Megger/insulation testing,12,hrs,Class 1 AC,Phase 6,"Scope-verified (was 2.5 hrs)"
+Labor Productivity (AC),Closeout and handoff,18,hrs,Class 1 AC,Phase 6,"As-builts, O&M, training (scope-verified)"
+Labor Productivity (AC),Punchlist corrections,16,hrs,Class 1 AC,Phase 6,"Final walk and corrections (scope-verified)"
+,,,,,,
+Labor Productivity (CL2),Design - base hours,4,hrs,Class 2 DC,Phase 1,"Formula: 4 + runs * 0.4"
+Labor Productivity (CL2),Design - run adder,0.4,hrs/run,Class 2 DC,Phase 1,
+Labor Productivity (CL2),Permitting - base hours,3,hrs,Class 2 DC,Phase 2,"Formula: 3 + distanceFt/1200"
+Labor Productivity (CL2),Permitting - distance adder,1/1200,hrs/ft,Class 2 DC,Phase 2,
+Labor Productivity (CL2),J-hook install rate,1/110,hrs/ft,Class 2 DC,Phase 3,~110 ft per hour
+Labor Productivity (CL2),Equipment install rate,0.25,hrs/injector,Class 2 DC,Phase 4,Per injector unit
+Labor Productivity (CL2),Cable pull rate,1/110,hrs/ft,Class 2 DC,Phase 5,~110 ft per hour
+Labor Productivity (CL2),Termination - base hours,1.5,hrs,Class 2 DC,Phase 5,"Formula: 1.5 + runs * 0.3"
+Labor Productivity (CL2),Termination - run adder,0.3,hrs/run,Class 2 DC,Phase 5,
+Labor Productivity (CL2),Testing - base hours,2,hrs,Class 2 DC,Phase 6,"Formula: 2 + runs * 0.15"
+Labor Productivity (CL2),Testing - run adder,0.15,hrs/run,Class 2 DC,Phase 6,
+Labor Productivity (CL2),Closeout (fixed),1.8,hrs,Class 2 DC,Phase 6,
+,,,,,,
+Labor Productivity (CL4),Design - base hours,5,hrs,Class 4 FMP,Phase 1,"Formula: 5 + distanceFt/600"
+Labor Productivity (CL4),Design - distance adder,1/600,hrs/ft,Class 4 FMP,Phase 1,
+Labor Productivity (CL4),Permitting (fixed),3.5,hrs,Class 4 FMP,Phase 2,
+Labor Productivity (CL4),Pathway install rate,1/140,hrs/ft,Class 4 FMP,Phase 3,~140 ft per hour
+Labor Productivity (CL4),Equipment install (fixed),2.5,hrs,Class 4 FMP,Phase 4,Head-end + receiver setup
+Labor Productivity (CL4),CL4 cable install rate,1/110,hrs/ft,Class 4 FMP,Phase 5,~110 ft per hour
+Labor Productivity (CL4),Fiber install rate,1/110,hrs/ft,Class 4 FMP,Phase 5,~110 ft per hour
+Labor Productivity (CL4),Testing - base hours,2,hrs,Class 4 FMP,Phase 6,"Formula: 2 + channels * 0.8"
+Labor Productivity (CL4),Testing - channel adder,0.8,hrs/channel,Class 4 FMP,Phase 6,
+Labor Productivity (CL4),Closeout (fixed),2,hrs,Class 4 FMP,Phase 6,
+,,,,,,
+Routing Multipliers,Indoor (baseline),1.00,multiplier,All,Phases 3 & 5 only,No additional adjustment
+Routing Multipliers,Outdoor (base),1.35,multiplier,All,Phases 3 & 5 only,Requires more protection
+Routing Multipliers,Mixed (base),1.15,multiplier,All,Phases 3 & 5 only,Indoor+outdoor complexity
+Routing Multipliers,IDF/Conduit (indoor),1.00,multiplier,All,Phases 3 & 5 only,"Baseline indoor routing; only applied when installType=indoor or mixed"
+Routing Multipliers,Plenum Space (indoor),1.20,multiplier,All,Phases 3 & 5 only,"Plenum-rated materials more expensive; only applied when installType=indoor or mixed"
+Routing Multipliers,Open Cable Tray (indoor),0.85,multiplier,All,Phases 3 & 5 only,"Less material and labor; only applied when installType=indoor or mixed"
+Routing Multipliers,J-Hooks on Beam (indoor),0.90,multiplier,All,Phases 3 & 5 only,"Reduced pathway material; only applied when installType=indoor or mixed"
+Routing Multipliers,Surface Mount (indoor),0.80,multiplier,All,Phases 3 & 5 only,"Simplest pathway; only applied when installType=indoor or mixed"
+Routing Multipliers,Direct Bury (outdoor),1.25,multiplier,All,Phases 3 & 5 only,"Trenching costs; only applied when installType=outdoor or mixed"
+Routing Multipliers,Conduit Buried (outdoor),1.40,multiplier,All,Phases 3 & 5 only,"Trenching + conduit; only applied when installType=outdoor or mixed"
+Routing Multipliers,Aerial/Pole-Mount (outdoor),0.95,multiplier,All,Phases 3 & 5 only,"Lower cost if poles exist; only applied when installType=outdoor or mixed"
+Routing Multipliers,Wall Mount (outdoor),1.00,multiplier,All,Phases 3 & 5 only,"Baseline outdoor wall; only applied when installType=outdoor or mixed"
+Routing Multipliers,Underground Duct (outdoor),1.50,multiplier,All,Phases 3 & 5 only,"Most expensive outdoor method; only applied when installType=outdoor or mixed"
+Routing Multipliers,Architecture reduction (CL2/CL4),50%,of delta,Class 2 + Class 4,Phases 3 & 5,"CL2/CL4 get half the routing adjustment since they don't use heavy conduit"
+,,,,,,
+End Device Multipliers,Network Switch,1.10,multiplier,All,Phase 4 only,Additional integration effort (scoped to equipment phase)
+End Device Multipliers,Media Converter,1.05,multiplier,All,Phase 4 only,Moderate integration (scoped to equipment phase)
+End Device Multipliers,Direct to Device,1.00,multiplier,All,Phase 4 only,Baseline - no extra hardware
+,,,,,,
+Fit/Suitability Rules,AC strong fit,"distanceFt ≤ 75 OR powerW > 4000",,Class 1 AC,Assessment,Short distance or very high power
+Fit/Suitability Rules,AC warning,"distanceFt > 75 AND powerW ≤ 4000",,Class 1 AC,Assessment,Higher cost/time as distance grows
+Fit/Suitability Rules,CL2 strong fit,"powerW ≤ 100 AND distanceFt ≤ 300",,Class 2 DC,Assessment,Best for low-power and shorter spans
+Fit/Suitability Rules,CL2 warning,"powerW > 100 OR distanceFt > 300",,Class 2 DC,Assessment,Parallel runs increase cost at higher loads
+Fit/Suitability Rules,CL4 strong fit,powerW ≤ 4500,,Class 4 FMP,Assessment,Strong fit for medium-to-high power over long runs
+Fit/Suitability Rules,CL4 warning,powerW > 4500,,Class 4 FMP,Assessment,Above 4.5 kW may require AC architecture
+,,,,,,
+Input Constraints,Power minimum,10,W,All,Input,User input lower bound
+Input Constraints,Power maximum,15000,W,All,Input,User input upper bound (raised to allow full buildout tier >10kW)
+Input Constraints,Distance minimum,25,ft,All,Input,User input lower bound
+Input Constraints,Distance maximum,5000,ft,All,Input,User input upper bound
+Input Constraints,Crew size minimum,1,persons,All,Input,
+Input Constraints,Crew size maximum,20,persons,All,Input,
+Input Constraints,Labor rate minimum,10,$/hr,All,Input,
+Input Constraints,Labor rate maximum,250,$/hr,All,Input,
+,,,,,,
+Assumptions,Single-site comparison,1,site,All,All,All costs are for one site deployment
+Assumptions,Design phases are sequential,1 person,,All,Phases 1-2,Not parallelized by crew
+Assumptions,Install phases parallelized by crew,crewSize,,All,Phases 3-6,Days = hours / 8 / crewSize
+Assumptions,Routing multipliers scoped to phases 3 & 5,phase-specific,,All,Phases 3 & 5,"Only pathway and cable phases get routing adjustment, not design/permitting/commissioning"
+Assumptions,End device multiplier scoped to phase 4,phase-specific,,All,Phase 4,"Only equipment phase gets end device adjustment"
+Assumptions,CL2/CL4 get reduced routing multiplier,50% of delta,,Class 2 + Class 4,Phases 3 & 5,"Since they don't use heavy conduit, they get half the routing penalty"
+Assumptions,Transformer required when powerW > 10000 OR distanceFt > 325,conditional,,Class 1 AC,Phase 4,"Full buildout tier: transformer + new panels + feeder breaker"
+Assumptions,Simple tier: distanceFt < 260 AND powerW < 2000,conditional,,Class 1 AC,All,"Conduit + single receptacle only; no panels, no transformer, reduced design/testing"
+Assumptions,Standard tier: between simple and full,conditional,,Class 1 AC,Phase 4,"Breaker in existing panel only; no new panel or transformer"
+Assumptions,Full buildout tier: powerW > 10000 OR distanceFt > 325,conditional,,Class 1 AC,Phase 4,"New panelboard + dry-type transformer + feeder breaker in MER"
+Assumptions,No contingency/markup included,0,%,All,All,Costs are base estimates without margin
+Assumptions,No sales tax included,0,%,All,All,
+Assumptions,Single revision cycle assumed,1,cycle,All,Phase 1,Design revisions
+,,,,,,
+,,,,,,
+Scope Reference (AC Full Buildout),,,,,,Source: MEP Design Line Item SoW — Full tenant floor AC scope (for validation reference)
+Scope Reference (AC Full Buildout),Row 11: Permit fees (allowance),500,$ (lot),Class 1 AC,Phase 2,"Allowance / benchmark — used directly in tool"
+Scope Reference (AC Full Buildout),Row 13: Feeder breaker in MER gear,2500,$/ea,Class 1 AC,Phase 4,"Allowance / benchmark — used directly in tool"
+Scope Reference (AC Full Buildout),"Row 14: Feeder conduit from MER (4"" EMT/IMC)",18,$/ft,Class 1 AC,Phase 3,"174ft scope qty; tool uses power-scaled conduit rate ($0.90–$18.00/ft)"
+Scope Reference (AC Full Buildout),Row 15: Feeder conductors (3P+N+G) in feeder conduit,18,"$/ft (L&M combined)",Class 1 AC,Phase 5,"174ft scope qty; tool separates material (AWG-based) from labor (0.12 hrs/ft)"
+Scope Reference (AC Full Buildout),Row 16: Pull boxes / junction cabinets,250,$/ea,Class 1 AC,Phase 3,"4ea in scope; tool uses ceil(conduitFt/100)-1"
+Scope Reference (AC Full Buildout),Row 17: Core drill penetrations,50,$/ea,Class 1 AC,Phase 3,"6ea in scope; tool combines with Row 18 as $75/ea"
+Scope Reference (AC Full Buildout),Row 18: Firestop penetrations (UL listed),25,$/ea,Class 1 AC,Phase 3,"6ea in scope; combined with Row 17 as $75/ea"
+Scope Reference (AC Full Buildout),Row 21: Grounding and bonding for feeder/conduit,200,$ (lot),Class 1 AC,Phase 3,"Used directly in tool"
+Scope Reference (AC Full Buildout),Row 22: Label feeder/pull boxes/panels per standard,250,$ (lot),Class 1 AC,Phase 5,"Used directly in tool"
+Scope Reference (AC Full Buildout),Row 24: Main panelboard 480/277V (400A class),2500,$/ea,Class 1 AC,Phase 4,"Used as >2000W tier in tool"
+Scope Reference (AC Full Buildout),Row 25: Dry-type transformer 480→208/120 (V48M28T7516),4500,$/ea,Class 1 AC,Phase 4,"Used directly in tool ($4,500 flat)"
+Scope Reference (AC Full Buildout),Row 26: Lighting panelboard 277V (225A class),1200,$/ea,Class 1 AC,Phase 4,"Used as ≤2000W tier in tool"
+Scope Reference (AC Full Buildout),Row 27: Mechanical panelboard 480/277V (225A class),1200,$/ea,Class 1 AC,Phase 4,"Reference only — downstream distribution"
+Scope Reference (AC Full Buildout),Row 28: Power panelboard PP-1 208/120V (225A class),1200,$/ea,Class 1 AC,Phase 4,"Reference only — downstream distribution"
+Scope Reference (AC Full Buildout),Row 29: Power panelboard PP-2 208/120V (225A class),1200,$/ea,Class 1 AC,Phase 4,"Reference only — downstream distribution"
+Scope Reference (AC Full Buildout),"Row 30: Feeder main panel → transformer (primary)",15,$/ft,Class 1 AC,Phase 5,"60ft scope qty; reference only — inter-panel secondary feeder"
+Scope Reference (AC Full Buildout),"Row 31: Feeder transformer → PP panels (secondary)",12,$/ft,Class 1 AC,Phase 5,"120ft scope qty; reference only — inter-panel secondary feeder"
+Scope Reference (AC Full Buildout),Row 32: Feeder main panel → lighting panel,12,$/ft,Class 1 AC,Phase 5,"60ft scope qty; reference only — inter-panel secondary feeder"
+Scope Reference (AC Full Buildout),Row 33: Feeder main panel → mechanical panel,12,$/ft,Class 1 AC,Phase 5,"60ft scope qty; reference only — inter-panel secondary feeder"
+Scope Reference (AC Full Buildout),Row 34: Panel schedules / circuit directories,0,"$ (TBD, labor only)",Class 1 AC,Phase 5,"Tool uses 6 hrs designer labor"
+Scope Reference (AC Full Buildout),Row 36: LED 2x4 troffer fixtures (PL-SMARB050KLTH),95,$/ea,Class 1 AC,Downstream,"320ea; NOT in tool — downstream load device"
+Scope Reference (AC Full Buildout),Row 38: LED downlight fixtures,60,$/ea,Class 1 AC,Downstream,"80ea; NOT in tool — downstream load device"
+Scope Reference (AC Full Buildout),Row 40: LED exit signs (battery),45,$/ea,Class 1 AC,Downstream,"20ea; NOT in tool — downstream life safety"
+Scope Reference (AC Full Buildout),Row 42: Emergency inverter units,5000,$/ea,Class 1 AC,Downstream,"2ea; NOT in tool — downstream life safety"
+Scope Reference (AC Full Buildout),Row 44: Lighting branch wiring (MC cable whips),1.50,$/ft,Class 1 AC,Downstream,"4900ft; NOT in tool — downstream branch wiring"
+Scope Reference (AC Full Buildout),Row 45: Occupancy/daylight sensors,40,$/ea,Class 1 AC,Downstream,"80ea; NOT in tool — downstream controls"
+Scope Reference (AC Full Buildout),Row 47: Lighting controls system hardware,8000,$ (lot),Class 1 AC,Downstream,"NOT in tool — downstream controls system"
+Scope Reference (AC Full Buildout),Row 50: Floor box assemblies (25249-TFN),120,$/ea,Class 1 AC,Downstream,"100ea; NOT in tool — downstream device"
+Scope Reference (AC Full Buildout),Row 53: Duplex receptacles for floor boxes,5,$/ea,Class 1 AC,Downstream,"200ea; NOT in tool — downstream device"
+Scope Reference (AC Full Buildout),Row 55: Wall duplex receptacles,4,$/ea,Class 1 AC,Downstream,"150ea; NOT in tool — downstream device"
+Scope Reference (AC Full Buildout),"Row 57: Branch conduit 3/4"" EMT (853429)",0.90,$/ft,Class 1 AC,Downstream,"8040ft; NOT in tool — downstream branch conduit; validates tool's ≤1000W conduit rate"
+Scope Reference (AC Full Buildout),Row 58: Branch conductors (#12 hot/neutral/ground),0.25,$/ft,Class 1 AC,Downstream,"24120ft; NOT in tool — downstream branch wiring"
+Scope Reference (AC Full Buildout),Row 59: 20A 1-pole breakers in PP panels,12,$/ea,Class 1 AC,Downstream,"161ea; NOT in tool — downstream branch protection"
+Scope Reference (AC Full Buildout),Row 60: 30A 2-pole breakers in PP panels,30,$/ea,Class 1 AC,Downstream,"10ea; NOT in tool — downstream branch protection"
+Scope Reference (AC Full Buildout),Row 62: Disconnect switches for exhaust fans,120,$/ea,Class 1 AC,Downstream,"3ea; NOT in tool — downstream mechanical disconnect"
+Scope Reference (AC Full Buildout),Row 63: Disconnect switches for fan coil units,120,$/ea,Class 1 AC,Downstream,"7ea; NOT in tool — downstream mechanical disconnect"
+Scope Reference (AC Full Buildout),Row 64: Branch conduit/wire to VAVs/fan coils/exhaust,0.90,$/ft,Class 1 AC,Downstream,"1800ft; NOT in tool — downstream mechanical branch"
+,,,,,,
+Scope Validation Notes,,,,,,
+Scope Validation Notes,Tool models MDF-to-endpoint delivery only,,,All,,"Tool compares cost of delivering power from source to single endpoint/IDF. Does NOT model full floor downstream distribution."
+Scope Validation Notes,AC transformer cost set to $4500 (flat),4500,$,Class 1 AC,Phase 4,"Scope Row 25 benchmark; covers range of tool (500W-6000W = sub-10kVA transformers)"
+Scope Validation Notes,Core drill + firestop combined as $75/ea,75,$,Class 1 AC,Phase 3,"Scope Row 17 ($50) + Row 18 ($25) = $75/ea combined"
+Scope Validation Notes,"Scope Row 57 validates conduit rate ($0.90/ft for 3/4"" EMT)",0.90,$/ft,Class 1 AC,Phase 3,"Matches tool's ≤1000W conduit tier exactly"
+Scope Validation Notes,"Scope Row 14 validates feeder conduit rate ($18/ft for 4"" EMT/IMC)",18.00,$/ft,Class 1 AC,Phase 3,"Matches tool's >3500W conduit tier exactly"
+Scope Validation Notes,CL4 head-end vs AC equipment cost crossover,~2500,W,AC vs CL4,Phase 4,"Below ~2500W AC equipment is significantly more expensive; above it CL4 channels multiply"

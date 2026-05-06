@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Power Delivery Comparison Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <main class="app-shell">
+    <header class="hero">
+      <p class="kicker">Customer Price Comparison Tool</p>
+      <h1>Power Architecture Cost and Time Comparator</h1>
+      <p>
+        Enter required load and distance. The tool generates a line-item build comparison for
+        Class 1 AC, Class 2 DC line power, and Class 4 Fault Managed Power.
+      </p>
+    </header>
+
+    <!-- Mode Toggle -->
+    <section class="mode-toggle card">
+      <h2>Analysis Mode</h2>
+      <div class="toggle-group">
+        <button id="modeSingle" class="toggle-btn active" type="button">Single Location</button>
+        <button id="modeMulti" class="toggle-btn" type="button">Multi-Location (MDF / IDF)</button>
+      </div>
+    </section>
+
+    <!-- Single Location Inputs (existing) -->
+    <section class="controls card" id="singleLocationSection">
+      <h2>Project Inputs</h2>
+      <div class="control-grid">
+        <label>
+          Required Power
+          <div class="input-wrap">
+            <input id="powerW" type="number" min="10" max="15000" value="1000" step="10" />
+            <span>W</span>
+          </div>
+        </label>
+
+        <label>
+          Distance from Source
+          <div class="input-wrap">
+            <input id="distanceFt" type="number" min="25" max="5000" value="500" step="25" />
+            <span>ft</span>
+          </div>
+        </label>
+      </div>
+
+      <div class="input-section-divider">Routing & Infrastructure</div>
+      <div class="control-grid">
+        <label>
+          Installation Type
+          <select id="installationType">
+            <option value="indoor">Indoor</option>
+            <option value="outdoor">Outdoor</option>
+            <option value="mixed">Mixed (Indoor + Outdoor)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="control-grid" id="indoorRoutingGroup">
+        <label>
+          In-Building Routing
+          <select id="inBuildingType">
+            <option value="idf">Open Riser</option>
+            <option value="plenum">Plenum Space</option>
+            <option value="open-tray">Open Cable Tray</option>
+            <option value="j-hooks">J-Hooks on Beam</option>
+            <option value="surface">Surface Mount</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="control-grid" id="outdoorRoutingGroup" style="display: none;">
+        <label>
+          Outdoor/External Routing
+          <select id="outdoorType">
+            <option value="direct-bury">Direct Bury</option>
+            <option value="conduit-bury">Conduit Buried</option>
+            <option value="aerial">Aerial/Pole-Mount</option>
+            <option value="wall-mount">Wall Mount</option>
+            <option value="underground-duct">Underground Duct</option>
+          </select>
+        </label>
+        <label>
+          AC Conduit Size (outdoor)
+          <select id="outdoorConduitSize">
+            <option value='3/4"'>3/4"</option>
+            <option value='1"'>1"</option>
+            <option value='1-1/4"'>1-1/4"</option>
+            <option value='2"' selected>2"</option>
+            <option value='4"'>4"</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="input-section-divider">Endpoint Configuration</div>
+      <div class="control-grid">
+        <label>
+          End Device Type
+          <select id="endDeviceType">
+            <option value="switch">Network Switch</option>
+            <option value="media-converter">Media Converter</option>
+            <option value="direct">Direct to Device</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="input-section-divider">Crew Details</div>
+      <div class="control-grid">
+        <label>
+          Installation Crew Size
+          <small>Applied to install phases only</small>
+          <div class="input-wrap">
+            <input id="crewSize" type="number" min="1" max="20" value="3" step="1" />
+          </div>
+        </label>
+
+        <label>
+          Conduit Installed Cost
+          <small>Labor + materials per foot (0 = auto by size)</small>
+          <div class="input-wrap">
+            <input id="conduitCostPerFt" type="number" min="0" max="50" value="0" step="0.50" />
+            <span>$/ft</span>
+          </div>
+        </label>
+      </div>
+
+      <button id="calculateBtn" type="button">Generate Comparison</button>
+    </section>
+
+    <!-- Multi-Location Inputs -->
+    <section class="controls card" id="multiLocationSection" style="display:none;">
+      <h2>Multi-Location Project</h2>
+      <p class="section-subtitle">Define each MDF/IDF location with its own power, distance, and routing parameters.</p>
+
+      <div class="input-section-divider">Shared Settings</div>
+      <div class="control-grid">
+        <label>
+          Installation Crew Size
+          <small>Applied across all locations</small>
+          <div class="input-wrap">
+            <input id="multiCrewSize" type="number" min="1" max="20" value="3" step="1" />
+            <span>persons</span>
+          </div>
+        </label>
+      </div>
+
+      <div class="input-section-divider">Locations</div>
+      <div id="locationList"></div>
+
+      <div class="location-actions">
+        <button id="addLocationBtn" type="button" class="btn-secondary">+ Add Location</button>
+        <button id="calculateMultiBtn" type="button">Generate Multi-Location Comparison</button>
+      </div>
+    </section>
+
+    <section class="rates card">
+      <div class="section-head">
+        <h2>Configurable Labor Rates</h2>
+        <button id="resetRatesBtn" type="button">Reset Defaults</button>
+      </div>
+      <div class="control-grid">
+        <label>
+          Electrician Rate
+          <div class="input-wrap">
+            <input id="rateElectrician" type="number" min="10" max="250" value="31.11" step="0.1" />
+            <span>$/hr</span>
+          </div>
+        </label>
+
+        <label>
+          Low Voltage Technician Rate
+          <div class="input-wrap">
+            <input id="rateLvTech" type="number" min="10" max="250" value="28.51" step="0.1" />
+            <span>$/hr</span>
+          </div>
+        </label>
+
+        <label>
+          Design / PM Rate
+          <div class="input-wrap">
+            <input id="rateDesign" type="number" min="10" max="250" value="51.43" step="0.1" />
+            <span>$/hr</span>
+          </div>
+        </label>
+
+        <label>
+          Electrical Designer / Drafter
+          <div class="input-wrap">
+            <input id="rateDesigner" type="number" min="10" max="250" value="35.44" step="0.1" />
+            <span>$/hr</span>
+          </div>
+        </label>
+
+        <label>
+          Construction Laborer
+          <div class="input-wrap">
+            <input id="rateLaborer" type="number" min="10" max="250" value="22.47" step="0.1" />
+            <span>$/hr</span>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <!-- Multi-Location Output -->
+    <div id="multiOutputArea" class="output-hidden">
+      <section class="summary card" id="multiSummary" aria-live="polite"></section>
+      <section class="card" id="multiLocationBreakdown"></section>
+    </div>
+
+    <!-- Single Location Output -->
+    <div id="outputArea" class="output-hidden">
+      <section class="export-bar card">
+        <div class="section-head">
+          <h2>Export Customer Package</h2>
+          <p>Download a formatted report for customer delivery.</p>
+        </div>
+        <div class="export-actions">
+          <input type="text" id="projectName" placeholder="Project Name (e.g., Building A Power Study)" class="export-input" />
+          <input type="text" id="customerName" placeholder="Customer / Owner Name" class="export-input" />
+          <input type="text" id="preparedBy" placeholder="Prepared By" class="export-input" />
+          <div class="export-buttons">
+            <button id="exportPdfBtn" type="button" class="btn-export btn-pdf">Export PDF</button>
+            <button id="exportExcelBtn" type="button" class="btn-export btn-excel">Export Excel</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="summary card" id="summary" aria-live="polite"></section>
+
+      <section class="phase-sections card">
+        <div class="section-head">
+          <h2>Project Phases at a Glance</h2>
+          <p>Simple stage-by-stage view for planning and customer discussion.</p>
+        </div>
+        <div id="phaseBreakdown"></div>
+      </section>
+
+      <section class="gantt-section card">
+        <div class="section-head">
+          <h2>Installation Timeline — Gantt Chart</h2>
+          <p>Phase-by-phase duration for each power architecture (crew-days).</p>
+        </div>
+        <div id="ganttChart"></div>
+      </section>
+
+      <section class="assumptions card">
+        <h2>Model Assumptions</h2>
+        <ul>
+          <li>Unit rates are based on the provided Panduit planning sheets and normalized for single-site comparisons.</li>
+          <li>Labor day assumes 8 hours. Distance influences both material quantity and installation effort.</li>
+          <li>Class 2 is strongest for low-power scenarios and may require parallel runs at higher loads.</li>
+          <li>Class 4 includes head-end and receiver hardware allocation plus fiber and CL4 pathway work.</li>
+        </ul>
+      </section>
+
+      <section class="comparison-chart card">
+        <div class="section-head">
+          <h2>Pricing Comparison</h2>
+          <p>Total project cost for each architecture — longer bar indicates higher investment.</p>
+        </div>
+        <div class="chart-container" id="comparisonRadar"></div>
+      </section>
+
+      <section class="cost-drivers card">
+        <div class="section-head">
+          <h2>Top 5 Cost Drivers</h2>
+          <p>Highest-cost line items across all architectures — where the money goes.</p>
+        </div>
+        <div id="costDriversTable"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
