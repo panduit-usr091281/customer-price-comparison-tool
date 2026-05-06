@@ -1595,9 +1595,33 @@ function revealOutputs() {
 }
 
 const SECTION_NAV_SELECTOR = ".nav-target[data-nav-label]";
+const SECTION_NAV_GROUPS = {
+  single: {
+    setup: ["singleLocationSection", "laborRates"],
+    results: ["summary", "phaseSections", "timelineSection", "pricingComparison", "costDriversSection", "capacitySection", "assumptionsSection"],
+  },
+  multi: {
+    setup: ["multiLocationSection", "laborRates"],
+    results: ["multiSummary", "multiLocationBreakdown"],
+  },
+};
+
+function getSectionNavIds() {
+  const outputVisible = !document.getElementById("outputArea").classList.contains("output-hidden");
+  const multiOutputVisible = !document.getElementById("multiOutputArea").classList.contains("output-hidden");
+
+  if (currentMode === "multi") {
+    return multiOutputVisible ? SECTION_NAV_GROUPS.multi.results : SECTION_NAV_GROUPS.multi.setup;
+  }
+
+  return outputVisible ? SECTION_NAV_GROUPS.single.results : SECTION_NAV_GROUPS.single.setup;
+}
 
 function getVisibleNavSections() {
-  return Array.from(document.querySelectorAll(SECTION_NAV_SELECTOR)).filter((section) => {
+  return getSectionNavIds()
+    .map((id) => document.getElementById(id))
+    .filter((section) => section && section.matches(SECTION_NAV_SELECTOR))
+    .filter((section) => {
     if (!section.id) return false;
     if (section.closest(".output-hidden")) return false;
 

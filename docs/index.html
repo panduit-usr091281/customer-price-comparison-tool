@@ -69,7 +69,7 @@ body {
   width: min(1380px, 96vw);
   margin: 2.2rem auto;
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr);
+  grid-template-columns: 188px minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
 }
@@ -90,8 +90,8 @@ body {
   top: 1rem;
   align-self: start;
   display: grid;
-  gap: 0.8rem;
-  padding: 0.95rem;
+  gap: 0.65rem;
+  padding: 0.78rem;
 }
 
 .section-nav.is-empty {
@@ -104,28 +104,33 @@ body {
 }
 
 .section-nav-kicker {
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
   font-weight: 700;
 }
 
+.section-nav-head h2 {
+  font-size: 1rem;
+}
+
 .section-nav-list {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.28rem;
 }
 
 .section-nav-link {
   display: block;
-  padding: 0.58rem 0.72rem;
-  border-radius: 12px;
+  padding: 0.46rem 0.58rem;
+  border-radius: 10px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.86rem;
+  font-size: 0.78rem;
   font-weight: 700;
   border: 1px solid transparent;
   transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+  line-height: 1.25;
 }
 
 .section-nav-link:hover {
@@ -906,7 +911,11 @@ th {
   .section-nav {
     top: 0.55rem;
     z-index: 30;
-    padding: 0.75rem;
+    padding: 0.6rem 0.65rem;
+  }
+
+  .section-nav-head {
+    display: none;
   }
 
   .section-nav-list {
@@ -3332,9 +3341,33 @@ function revealOutputs() {
 }
 
 const SECTION_NAV_SELECTOR = ".nav-target[data-nav-label]";
+const SECTION_NAV_GROUPS = {
+  single: {
+    setup: ["singleLocationSection", "laborRates"],
+    results: ["summary", "phaseSections", "timelineSection", "pricingComparison", "costDriversSection", "capacitySection", "assumptionsSection"],
+  },
+  multi: {
+    setup: ["multiLocationSection", "laborRates"],
+    results: ["multiSummary", "multiLocationBreakdown"],
+  },
+};
+
+function getSectionNavIds() {
+  const outputVisible = !document.getElementById("outputArea").classList.contains("output-hidden");
+  const multiOutputVisible = !document.getElementById("multiOutputArea").classList.contains("output-hidden");
+
+  if (currentMode === "multi") {
+    return multiOutputVisible ? SECTION_NAV_GROUPS.multi.results : SECTION_NAV_GROUPS.multi.setup;
+  }
+
+  return outputVisible ? SECTION_NAV_GROUPS.single.results : SECTION_NAV_GROUPS.single.setup;
+}
 
 function getVisibleNavSections() {
-  return Array.from(document.querySelectorAll(SECTION_NAV_SELECTOR)).filter((section) => {
+  return getSectionNavIds()
+    .map((id) => document.getElementById(id))
+    .filter((section) => section && section.matches(SECTION_NAV_SELECTOR))
+    .filter((section) => {
     if (!section.id) return false;
     if (section.closest(".output-hidden")) return false;
 
