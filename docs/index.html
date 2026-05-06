@@ -2241,26 +2241,13 @@ function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, 
 }
 
 function calculateClass4(powerW, distanceFt, labor, crewSize, installationType, outdoorType) {
-  // FMP Class 4: always 16AWG cable
-  // Pair count is distance-dependent — longer runs need more pairs to stay within voltage/current budget
-  // FMP operates at up to 450VDC; each pair carries limited current per safety class
-  // Typical: ~2.8A max per conductor pair (Class 4 safety limit)
-  // Power per pair = 450V × 2.8A × efficiency (~0.92) = ~1160W at short distance
-  // At longer distances, derate for voltage drop: 16AWG = 0.004016 Ω/ft
-  // Vdrop per pair = I × 2 × 0.004016 × dist; usable voltage = 450 - Vdrop
-  // Effective watts per pair = (450 - Vdrop) × 2.8 × 0.92
-  const cl4CurrentPerPair = 2.8;
-  const cl4Voltage = 450;
-  const cl4Efficiency = 0.92;
-  const cl4OhmsPerFt = 0.004016; // 16AWG
-  const cl4Vdrop = cl4CurrentPerPair * 2 * cl4OhmsPerFt * distanceFt;
-  const cl4EffectiveVoltage = Math.max(cl4Voltage * 0.8, cl4Voltage - cl4Vdrop); // min 80% voltage
-  const wattsPerPair = cl4EffectiveVoltage * cl4CurrentPerPair * cl4Efficiency;
-  const cl4Pairs = Math.max(1, Math.ceil(powerW / wattsPerPair));
-  const cl4TotalConductors = cl4Pairs * 2;
+  // FMP Class 4: 1 cable pair per channel (600W per channel at 360VDC)
+  // 16AWG cable used for all CL4 runs
 
   const receiverQty = Math.max(1, Math.ceil(powerW / 1800));
   const channels = Math.max(1, Math.ceil(powerW / 600)); // each channel = 600W
+  const cl4Pairs = channels; // 1 cable pair per channel
+  const cl4TotalConductors = cl4Pairs * 2;
   const shelfQty = Math.max(1, Math.ceil(channels / 9)); // each shelf holds 9 transmitters
   // CL4 cable pricing per foot (whole cable assembly): 1-pair=$1.10, 2-pair=$1.22, 3-pair=$1.36
   const cl4CableRatePerFt = cl4Pairs <= 1 ? 1.10 : cl4Pairs <= 2 ? 1.22 : 1.36;
