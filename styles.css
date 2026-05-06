@@ -456,6 +456,11 @@ label small {
   color: #6366f1;
 }
 
+.snap-badge.safe {
+  background: rgba(234, 88, 12, 0.12);
+  color: #ea580c;
+}
+
 .metric h3 {
   margin: 0.2rem 0 0;
   font-size: 1.15rem;

@@ -1177,10 +1177,12 @@ function renderSummary(scenarios, powerW, distanceFt, crewSize) {
   const scenarioCards = scenarios.map((s) => {
     const isCheapest = s.totalCost === lowestCost;
     const isFastest = s.totalDays === fastestDays;
+    const isSafest = scenarioArchKey(s.name) === "cl4";
     const cheapestClass = isCheapest ? " cheapest" : "";
     const badges = [
       isCheapest ? `<span class="snap-badge good">Lowest Cost</span>` : "",
       isFastest  ? `<span class="snap-badge fast">Fastest</span>`     : "",
+      isSafest   ? `<span class="snap-badge safe">Safest</span>`      : "",
     ].join("");
 
     return `
