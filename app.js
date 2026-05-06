@@ -74,12 +74,14 @@ function electricalCableRate(powerW, distanceFt) {
 // AC conduit defaults to 2" for all power tiers; user may override the size
 // when the installation is outdoor (handled via the outdoorConduitSize input).
 function conduitRate(powerW, sizeOverride) {
+  // All-in material rate includes pipe, fittings, straps, couplings, connectors, and supports.
+  // Labor is install pace only. Target: ~$18/ft installed for 2" EMT.
   const sizes = {
-    '3/4"':   { size: '3/4"',   rate: 0.90,  laborPerFt: 0.06 },
-    '1"':     { size: '1"',     rate: 1.50,  laborPerFt: 0.08 },
-    '1-1/4"': { size: '1-1/4"', rate: 2.50,  laborPerFt: 0.10 },
-    '2"':     { size: '2"',     rate: 4.50,  laborPerFt: 0.14 },
-    '4"':     { size: '4"',     rate: 18.00, laborPerFt: 0.22 },
+    '3/4"':   { size: '3/4"',   rate: 6.50,  laborPerFt: 0.06 },
+    '1"':     { size: '1"',     rate: 8.50,  laborPerFt: 0.08 },
+    '1-1/4"': { size: '1-1/4"', rate: 11.00, laborPerFt: 0.10 },
+    '2"':     { size: '2"',     rate: 13.64, laborPerFt: 0.14 },
+    '4"':     { size: '4"',     rate: 28.00, laborPerFt: 0.22 },
   };
   if (sizeOverride && sizes[sizeOverride]) return sizes[sizeOverride];
   return sizes['2"']; // default for all AC power
@@ -256,7 +258,7 @@ function calculateAC(powerW, distanceFt, labor, crewSize, conduitCostOverride, i
       laborUnits: useConduitOverride ? 0 : (isSimple ? 0.05 : conduitLaborHrsPerFt),
       laborRate: labor.electrician,
       laborRole: "Electrician",
-      materials: [material(`Conduit ${conduitSize} EMT${useConduitOverride ? " (installed)" : ""}`, conduitFt, "ft", conduitAllInPerFt)],
+      materials: [material(`Conduit ${conduitSize} EMT w/ fittings & supports${useConduitOverride ? " (installed)" : ""}`, conduitFt, "ft", conduitAllInPerFt)],
       milestone: "Conduit complete",
     }),
     ...(pullBoxQty > 0 ? [createLineItem({
