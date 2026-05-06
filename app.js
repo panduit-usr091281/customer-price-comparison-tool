@@ -1591,6 +1591,62 @@ function normalizeNumericInput(id, min, max, fallback) {
 function revealOutputs() {
   const outputArea = document.getElementById("outputArea");
   outputArea.classList.remove("output-hidden");
+  renderSectionNav();
+}
+
+const SECTION_NAV_SELECTOR = ".nav-target[data-nav-label]";
+
+function getVisibleNavSections() {
+  return Array.from(document.querySelectorAll(SECTION_NAV_SELECTOR)).filter((section) => {
+    if (!section.id) return false;
+    if (section.closest(".output-hidden")) return false;
+
+    const style = window.getComputedStyle(section);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+
+    return section.getClientRects().length > 0;
+  });
+}
+
+function setActiveSectionNav(activeId) {
+  document.querySelectorAll(".section-nav-link").forEach((link) => {
+    const isActive = link.dataset.target === activeId;
+    link.classList.toggle("is-active", isActive);
+    if (isActive) link.setAttribute("aria-current", "true");
+    else link.removeAttribute("aria-current");
+  });
+}
+
+function updateActiveSectionNav() {
+  const sections = getVisibleNavSections();
+  if (!sections.length) {
+    setActiveSectionNav("");
+    return;
+  }
+
+  const threshold = Math.max(96, window.innerHeight * 0.22);
+  let activeId = sections[0].id;
+  sections.forEach((section) => {
+    if (section.getBoundingClientRect().top <= threshold) {
+      activeId = section.id;
+    }
+  });
+
+  setActiveSectionNav(activeId);
+}
+
+function renderSectionNav() {
+  const nav = document.getElementById("sectionNav");
+  const list = document.getElementById("sectionNavList");
+  if (!nav || !list) return;
+
+  const sections = getVisibleNavSections();
+  nav.classList.toggle("is-empty", sections.length === 0);
+  list.innerHTML = sections.map((section) => `
+    <a class="section-nav-link" href="#${section.id}" data-target="${section.id}">${section.dataset.navLabel}</a>
+  `).join("");
+
+  updateActiveSectionNav();
 }
 
 function renderSpiderChart(scenarios) {
@@ -1779,6 +1835,7 @@ function runModel() {
   renderSpiderChart(scenarios);
   renderCostDrivers(scenarios);
   renderCapacityAvailability(scenarios);
+  renderSectionNav();
 }
 
 function generateOutput() {
@@ -2216,10 +2273,24 @@ function setMode(mode) {
   document.getElementById("multiLocationSection").style.display = mode === "multi" ? "grid" : "none";
   document.getElementById("outputArea").classList.add("output-hidden");
   document.getElementById("multiOutputArea").classList.add("output-hidden");
+  renderSectionNav();
 }
 
 document.getElementById("modeSingle").addEventListener("click", () => setMode("single"));
 document.getElementById("modeMulti").addEventListener("click", () => setMode("multi"));
+document.getElementById("sectionNavList").addEventListener("click", (event) => {
+  const link = event.target.closest(".section-nav-link");
+  if (!link) return;
+
+  event.preventDefault();
+  const target = document.getElementById(link.dataset.target);
+  if (!target) return;
+
+  target.scrollIntoView({ behavior: "auto", block: "start" });
+  setActiveSectionNav(link.dataset.target);
+});
+window.addEventListener("scroll", updateActiveSectionNav, { passive: true });
+window.addEventListener("resize", renderSectionNav);
 
 // ─── Multi-Location Management ────────────────────────────────────────────────
 let locationIdCounter = 0;
@@ -2387,6 +2458,7 @@ function runMultiModel() {
   renderMultiBreakdown(perLocation);
 
   document.getElementById("multiOutputArea").classList.remove("output-hidden");
+  renderSectionNav();
   document.getElementById("multiOutputArea").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -2553,3 +2625,5 @@ normalizeNumericInput("rateLaborer", 10, 250, defaultLabor.laborer);
 // ─── Export Event Listeners ───────────────────────────────────────────────────
 document.getElementById("exportPdfBtn").addEventListener("click", exportPDF);
 document.getElementById("exportExcelBtn").addEventListener("click", exportExcel);
+
+renderSectionNav();

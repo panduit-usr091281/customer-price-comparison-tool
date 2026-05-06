@@ -12,8 +12,17 @@
 <body>
   <div class="bg-orb orb-1"></div>
   <div class="bg-orb orb-2"></div>
-  <main class="app-shell">
-    <header class="hero">
+  <div class="page-layout">
+    <aside class="section-nav card" id="sectionNav" aria-label="Page section navigation">
+      <div class="section-nav-head">
+        <p class="section-nav-kicker">Navigate</p>
+        <h2>Sections</h2>
+      </div>
+      <nav class="section-nav-list" id="sectionNavList"></nav>
+    </aside>
+
+    <main class="app-shell">
+    <header class="hero nav-target" id="overview" data-nav-label="Overview">
       <p class="kicker">Customer Price Comparison Tool</p>
       <h1>Power Architecture Cost and Time Comparator</h1>
       <p>
@@ -23,7 +32,7 @@
     </header>
 
     <!-- Mode Toggle -->
-    <section class="mode-toggle card">
+    <section class="mode-toggle card nav-target" id="analysisMode" data-nav-label="Mode">
       <h2>Analysis Mode</h2>
       <div class="toggle-group">
         <button id="modeSingle" class="toggle-btn active" type="button">Single Location</button>
@@ -32,7 +41,7 @@
     </section>
 
     <!-- Single Location Inputs (existing) -->
-    <section class="controls card" id="singleLocationSection">
+    <section class="controls card nav-target" id="singleLocationSection" data-nav-label="Project Inputs">
       <h2>Project Inputs</h2>
       <div class="control-grid">
         <label>
@@ -136,7 +145,7 @@
     </section>
 
     <!-- Multi-Location Inputs -->
-    <section class="controls card" id="multiLocationSection" style="display:none;">
+    <section class="controls card nav-target" id="multiLocationSection" data-nav-label="Multi-Location" style="display:none;">
       <h2>Multi-Location Project</h2>
       <p class="section-subtitle">Define each MDF/IDF location with its own power, distance, and routing parameters.</p>
 
@@ -161,7 +170,7 @@
       </div>
     </section>
 
-    <section class="rates card">
+    <section class="rates card nav-target" id="laborRates" data-nav-label="Labor Rates">
       <div class="section-head">
         <h2>Configurable Labor Rates</h2>
         <button id="resetRatesBtn" type="button">Reset Defaults</button>
@@ -211,13 +220,13 @@
 
     <!-- Multi-Location Output -->
     <div id="multiOutputArea" class="output-hidden">
-      <section class="summary card" id="multiSummary" aria-live="polite"></section>
-      <section class="card" id="multiLocationBreakdown"></section>
+      <section class="summary card nav-target" id="multiSummary" data-nav-label="Multi Summary" aria-live="polite"></section>
+      <section class="card nav-target" id="multiLocationBreakdown" data-nav-label="Location Breakdown"></section>
     </div>
 
     <!-- Single Location Output -->
     <div id="outputArea" class="output-hidden">
-      <section class="export-bar card">
+      <section class="export-bar card nav-target" id="exportPackage" data-nav-label="Export">
         <div class="section-head">
           <h2>Export Customer Package</h2>
           <p>Download a formatted report for customer delivery.</p>
@@ -233,9 +242,9 @@
         </div>
       </section>
 
-      <section class="summary card" id="summary" aria-live="polite"></section>
+      <section class="summary card nav-target" id="summary" data-nav-label="Snapshot" aria-live="polite"></section>
 
-      <section class="phase-sections card">
+      <section class="phase-sections card nav-target" id="phaseSections" data-nav-label="Phase Breakdown">
         <div class="section-head">
           <h2>Project Phases at a Glance</h2>
           <p>Simple stage-by-stage view for planning and customer discussion.</p>
@@ -243,7 +252,7 @@
         <div id="phaseBreakdown"></div>
       </section>
 
-      <section class="gantt-section card">
+      <section class="gantt-section card nav-target" id="timelineSection" data-nav-label="Timeline">
         <div class="section-head">
           <h2>Installation Timeline — Gantt Chart</h2>
           <p>Phase-by-phase duration for each power architecture (crew-days).</p>
@@ -251,7 +260,7 @@
         <div id="ganttChart"></div>
       </section>
 
-      <section class="comparison-chart card">
+      <section class="comparison-chart card nav-target" id="pricingComparison" data-nav-label="Pricing">
         <div class="section-head">
           <h2>Pricing Comparison</h2>
           <p>Total project cost for each architecture — longer bar indicates higher investment.</p>
@@ -259,7 +268,7 @@
         <div class="chart-container" id="comparisonRadar"></div>
       </section>
 
-      <section class="cost-drivers card">
+      <section class="cost-drivers card nav-target" id="costDriversSection" data-nav-label="Cost Drivers">
         <div class="section-head">
           <h2>Top 5 Cost Drivers</h2>
           <p>Highest-cost line items across all architectures — where the money goes.</p>
@@ -267,7 +276,7 @@
         <div id="costDriversTable"></div>
       </section>
 
-      <section class="capacity-section card">
+      <section class="capacity-section card nav-target" id="capacitySection" data-nav-label="Capacity">
         <div class="section-head">
           <h2>Future Power Capacity Availability</h2>
           <p>Compare how much spare power is left after the current load is provisioned for each architecture.</p>
@@ -275,7 +284,7 @@
         <div id="capacityAvailability"></div>
       </section>
 
-      <section class="assumptions card">
+      <section class="assumptions card nav-target" id="assumptionsSection" data-nav-label="Assumptions">
         <h2>Model Assumptions</h2>
         <ul>
           <li>Unit rates are based on the provided Panduit planning sheets and normalized for single-site comparisons.</li>
@@ -286,6 +295,7 @@
       </section>
     </div>
   </main>
+  </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
