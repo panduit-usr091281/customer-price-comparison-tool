@@ -1463,8 +1463,7 @@ function renderCostDrivers(scenarios) {
   const container = document.getElementById("costDriversTable");
   if (!container) return;
 
-  // Collect all line items from the most expensive scenario (AC typically)
-  // and merge costs from each architecture
+  // Collect all line items and merge costs from each architecture
   const driverMap = new Map();
 
   scenarios.forEach((scenario) => {
@@ -1473,7 +1472,7 @@ function renderCostDrivers(scenarios) {
     scenario.rows.forEach((row) => {
       const key = row.activity;
       if (!driverMap.has(key)) {
-        driverMap.set(key, { activity: row.activity, phase: row.phase, costs: {} });
+        driverMap.set(key, { activity: row.activity, phase: row.phase, description: row.description || "", costs: {} });
       }
       driverMap.get(key).costs[archLabel] = (driverMap.get(key).costs[archLabel] || 0) + row.lineTotal;
     });
@@ -1485,29 +1484,37 @@ function renderCostDrivers(scenarios) {
     .sort((a, b) => b.maxCost - a.maxCost)
     .slice(0, 5);
 
-  const archKeys = scenarios.map((s) => {
-    const k = scenarioArchKey(s.name);
-    return k === "ac" ? "AC" : k === "cl2" ? "CL2" : "CL4";
-  });
+  // Generate a reason why this item drives cost
+  function costReason(d) {
+    const archs = Object.entries(d.costs).sort((a, b) => b[1] - a[1]);
+    const topArch = archs[0][0];
+    const phase = d.phase.replace(/^\d+\)\s*/, "");
+    if (d.activity.toLowerCase().includes("conduit")) return `Long conduit runs scale linearly with distance — material + labor compound on ${topArch} installations.`;
+    if (d.activity.toLowerCase().includes("trench")) return `Earthwork is distance-intensive — depth and width requirements add heavy labor and equipment cost.`;
+    if (d.activity.toLowerCase().includes("cable pull") || d.activity.toLowerCase().includes("cable install")) return `Cable material × conductor count × distance drives this line — higher pair counts at long distances compound quickly.`;
+    if (d.activity.toLowerCase().includes("head-end") || d.activity.toLowerCase().includes("transmitter")) return `CL4 head-end hardware carries a high per-channel cost that scales with power demand.`;
+    if (d.activity.toLowerCase().includes("transformer") || d.activity.toLowerCase().includes("panel")) return `Heavy electrical equipment (transformer, panelboard) required for high-power AC builds.`;
+    if (d.activity.toLowerCase().includes("design") || d.activity.toLowerCase().includes("engineering")) return `Design complexity scales with distance and power — longer runs require more coordination and documentation.`;
+    if (d.activity.toLowerCase().includes("permit") || d.activity.toLowerCase().includes("ahj")) return `AHJ review and permitting carry fixed minimum effort plus wait-time schedule impact.`;
+    if (d.activity.toLowerCase().includes("hub") || d.activity.toLowerCase().includes("aggregator")) return `Equipment hardware scales with power demand — more pairs/channels require more aggregation points.`;
+    if (d.activity.toLowerCase().includes("receiver")) return `Receiver hardware scales with endpoint count — each output location requires dedicated hardware.`;
+    return `Significant ${phase.toLowerCase()} cost driven by the combination of quantity, distance, and labor intensity.`;
+  }
 
   const tableRows = drivers.map((d, i) => {
-    const costCells = archKeys.map((arch) => {
-      const val = d.costs[arch] || 0;
-      return `<td class="cost-driver-val">${money(val)}</td>`;
-    }).join("");
+    const archs = Object.keys(d.costs).filter((a) => d.costs[a] > 0).join(", ");
+    const reason = costReason(d);
     return `
       <tr class="cost-driver-row" data-rank="${i + 1}">
         <td class="cost-driver-rank">${i + 1}</td>
         <td class="cost-driver-activity">
           <span class="cost-driver-name">${d.activity}</span>
-          <span class="cost-driver-phase">${d.phase}</span>
         </td>
-        ${costCells}
+        <td class="cost-driver-arch">${archs}</td>
+        <td class="cost-driver-reason">${reason}</td>
       </tr>
     `;
   }).join("");
-
-  const archHeaders = archKeys.map((a) => `<th>${a}</th>`).join("");
 
   container.innerHTML = `
     <table class="cost-drivers-table">
@@ -1515,7 +1522,8 @@ function renderCostDrivers(scenarios) {
         <tr>
           <th class="col-rank">#</th>
           <th class="col-activity">Line Item</th>
-          ${archHeaders}
+          <th class="col-arch">Power Class</th>
+          <th class="col-reason">Why It Drives Cost</th>
         </tr>
       </thead>
       <tbody>
@@ -2160,6 +2168,43 @@ function renderMultiSummary(perLocation, archTotals, crewSize) {
   `;
 }
 
+function renderMultiGantt(scenarios) {
+  const phaseOrder = [...new Set(scenarios.flatMap((s) => s.rows.map((r) => r.phase)))];
+  const maxDays = Math.max(...scenarios.map((s) => s.totalDays));
+
+  const trackHtml = scenarios.map((scenario) => {
+    const trackBars = phaseOrder.map((phase, pi) => {
+      const phaseRows = scenario.rows.filter((r) => r.phase === phase);
+      const rawHours = phaseRows.reduce((sum, r) => sum + r.laborHours, 0);
+      const days = DESIGN_PHASES.has(phase) ? rawHours / 8 : rawHours / 8 / scenario.crewSize;
+      const pct = maxDays > 0 ? (days / maxDays) * 100 : 0;
+      const short = PHASE_NAMES_SHORT[phase] || phase;
+      const colorClass = GANTT_COLORS[pi % GANTT_COLORS.length];
+      return { short, days, pct, colorClass, phase };
+    }).filter((b) => b.days > 0);
+
+    const barHtml = trackBars.map((b) => `
+      <div class="gantt-bar ${b.colorClass}" style="width:${b.pct}%" title="${b.phase}: ${num(b.days,1)} days">
+        ${b.pct > 10 ? b.short : ""}
+      </div>
+    `).join("");
+
+    const label = scenarioArchKey(scenario.name) === "ac" ? "AC"
+      : scenarioArchKey(scenario.name) === "cl2" ? "CL2" : "CL4";
+    return `
+      <div class="gantt-scenario gantt-mini">
+        <div class="gantt-label-row">
+          <span class="gantt-scenario-name">${label}</span>
+          <span class="gantt-total-label">${num(scenario.totalDays,1)} days</span>
+        </div>
+        <div class="gantt-track">${barHtml}</div>
+      </div>
+    `;
+  }).join("");
+
+  return `<div class="gantt-wrap gantt-mini-wrap">${trackHtml}</div>`;
+}
+
 function renderMultiBreakdown(perLocation) {
   const html = perLocation.map(({ loc, scenarios }) => {
     const sorted = [...scenarios].sort((a, b) => a.totalCost - b.totalCost);
@@ -2175,6 +2220,8 @@ function renderMultiBreakdown(perLocation) {
       `;
     }).join("");
 
+    const ganttHtml = renderMultiGantt(scenarios);
+
     return `
       <div class="loc-breakdown-card">
         <h4>${loc.name}</h4>
@@ -2184,6 +2231,7 @@ function renderMultiBreakdown(perLocation) {
           <span>${loc.installationType}</span>
         </div>
         <div class="loc-arch-pills">${pills}</div>
+        <div class="loc-gantt">${ganttHtml}</div>
       </div>
     `;
   }).join("");
