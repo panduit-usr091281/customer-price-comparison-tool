@@ -810,12 +810,9 @@ function calculateClass4(powerW, distanceFt, labor, crewSize, installationType, 
   const cl4Pairs = Math.max(1, Math.ceil(powerW / wattsPerPair));
   const cl4TotalConductors = cl4Pairs * 2;
 
-  const receiverQty = Math.max(1, Math.ceil(powerW / 1500));
-  const channels = receiverQty * 3;
-  // Head-end: $2100 base, doubles linearly from channel 10 to 18
-  const headEndCost = channels <= 9
-    ? 2100
-    : 2100 + (2100 * Math.min(1, (channels - 9) / 9));
+  const receiverQty = Math.max(1, Math.ceil(powerW / 1800));
+  const channels = Math.max(1, Math.ceil(powerW / 600)); // each channel = 600W
+  const shelfQty = Math.max(1, Math.ceil(channels / 9)); // each shelf holds 9 transmitters
   // CL4 cable pricing per foot (whole cable assembly): 1-pair=$1.10, 2-pair=$1.22, 3-pair=$1.36
   const cl4CableRatePerFt = cl4Pairs <= 1 ? 1.10 : cl4Pairs <= 2 ? 1.22 : 1.36;
   const cl4CableFt = distanceFt * 1.1; // cable run length with 10% slack
@@ -926,26 +923,38 @@ function calculateClass4(powerW, distanceFt, labor, crewSize, installationType, 
     })(),
     createLineItem({
       phase: "4) Power Equipment Install",
-      activity: "FMP transmitter / head-end installation",
-      description: `Install head-end chassis, PSU modules, and ${channels} channel cards`,
-      quantity: 1,
+      activity: "FMP transmitter shelf installation",
+      description: `Install ${shelfQty} transmitter shelf${shelfQty > 1 ? "ves" : ""} (each holds up to 9 channels)`,
+      quantity: shelfQty,
       unit: "ea",
-      laborUnits: 1.5 * Math.ceil(channels / 3),
+      laborUnits: 1.5,
       laborRate: labor.lvTech,
       laborRole: "Low Voltage Technician",
-      materials: [material("Class 4 head-end (" + channels + " ch)", 1, "ea", headEndCost)],
-      milestone: "Head-end installed",
+      materials: [material("Transmitter shelf", shelfQty, "ea", 1800)],
+      milestone: "Shelves installed",
+    }),
+    createLineItem({
+      phase: "4) Power Equipment Install",
+      activity: "FMP transmitter channel cards",
+      description: `Install ${channels} transmitter card${channels > 1 ? "s" : ""} (600W per channel)`,
+      quantity: channels,
+      unit: "ea",
+      laborUnits: 0.25,
+      laborRate: labor.lvTech,
+      laborRole: "Low Voltage Technician",
+      materials: [material("Transmitter channel card", channels, "ea", 900)],
+      milestone: "Channels installed",
     }),
     createLineItem({
       phase: "4) Power Equipment Install",
       activity: "FMP receiver hardware deployment",
-      description: "Install receiver endpoints and verify power output",
+      description: `Install ${receiverQty} receiver${receiverQty > 1 ? "s" : ""} (1800W max, up to 3 channels each)`,
       quantity: receiverQty,
       unit: "ea",
       laborUnits: 1.0,
       laborRate: labor.lvTech,
       laborRole: "Low Voltage Technician",
-      materials: [material("Class 4 receiver", receiverQty, "ea", 1650)],
+      materials: [material("Class 4 receiver", receiverQty, "ea", 1950)],
       milestone: "Receivers installed",
     }),
     createLineItem({
