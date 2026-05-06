@@ -447,8 +447,8 @@ label small {
 }
 
 .snap-badge.good {
-  background: rgba(13, 148, 136, 0.12);
-  color: #0d9488;
+  background: rgba(202, 138, 4, 0.12);
+  color: #ca8a04;
 }
 
 .snap-badge.fast {
@@ -457,8 +457,8 @@ label small {
 }
 
 .snap-badge.safe {
-  background: rgba(234, 88, 12, 0.12);
-  color: #ea580c;
+  background: rgba(13, 148, 136, 0.12);
+  color: #0d9488;
 }
 
 .metric h3 {
