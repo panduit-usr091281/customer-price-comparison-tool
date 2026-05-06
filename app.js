@@ -565,7 +565,7 @@ function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, 
   const pullLaborHrs = pullGroups * cl2Dist * 1.1 * laborPerFtPerGroup;
 
   const injectorQty = Math.max(1, Math.ceil(pairs / 4));
-  const dcHubQty = Math.max(1, Math.ceil(powerW / 300));
+  const dcHubCost = 1820 + Math.max(0, pairs - 5) * 250;
   const jHookQty = Math.ceil(pathwayFt / 6);
   const penetrationQty = Math.max(1, Math.ceil(cl2Dist / 200));
 
@@ -673,13 +673,13 @@ function calculateClass2(powerW, distanceFt, labor, crewSize, installationType, 
     createLineItem({
       phase: "4) Power Equipment Install",
       activity: "DC hub deployment",
-      description: "Install and mount DC conversion hubs",
-      quantity: dcHubQty,
+      description: `Install and mount DC conversion hub ($1,820 base + $250/pair after 5 pairs)`,
+      quantity: 1,
       unit: "ea",
       laborUnits: 0.5,
       laborRate: labor.lvTech,
       laborRole: "Low Voltage Technician",
-      materials: [material("DC hubs", dcHubQty, "ea", 520)],
+      materials: [material("DC hub", 1, "ea", dcHubCost)],
       milestone: "DC hubs set",
     }),
     createLineItem({
