@@ -1059,7 +1059,12 @@ function summarize(name, lineItems, fitMeta, crewSize = 1) {
 
   const rows = lineItems.map((x) => {
     const materialCost = x.materials.reduce((sum, m) => sum + m.qty * m.unitCost, 0);
-    const laborCost = x.laborHours * x.laborRate;
+    // Labor cost: total man-hours × rate ÷ crew size.
+    // Design/PM phases are single-person work — crew size does not apply.
+    const isDesignPhase = DESIGN_PHASES.has(x.phase);
+    const laborCost = isDesignPhase
+      ? x.laborHours * x.laborRate
+      : (x.laborHours * x.laborRate) / crewSize;
     const lineTotal = materialCost + laborCost;
     materialTotal += materialCost;
     laborTotal += laborCost;
