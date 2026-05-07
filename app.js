@@ -1613,7 +1613,7 @@ const SECTION_NAV_GROUPS = {
   },
   multi: {
     setup: ["multiLocationSection", "laborRates"],
-    results: ["multiSummary", "multiLocationBreakdown", "multiGrandTotals"],
+    results: ["multiSummary", "multiCapacity", "multiLocationBreakdown"],
   },
 };
 
@@ -1698,8 +1698,8 @@ function clearOutputContent() {
     "costDriversTable",
     "capacityAvailability",
     "multiSummary",
+    "multiCapacity",
     "multiLocationBreakdown",
-    "multiGrandTotals",
   ].forEach((id) => {
     const element = document.getElementById(id);
     if (element) element.innerHTML = "";
@@ -3204,9 +3204,9 @@ function runMultiModel() {
   });
 
   const aggregateScenarios = buildAggregateScenarios(perLocation, crewSize);
-  renderMultiSummary(perLocation, archTotals, crewSize);
+  renderMultiSummary(perLocation, archTotals, crewSize, aggregateScenarios);
+  renderMultiCapacity(perLocation);
   renderMultiBreakdown(perLocation);
-  renderMultiGrandTotals(aggregateScenarios);
   captureMultiExportData(perLocation, archTotals, crewSize, aggregateScenarios);
 
   hasGenerated = true;
@@ -3217,10 +3217,11 @@ function runMultiModel() {
   document.getElementById("exportPackage").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function renderMultiSummary(perLocation, archTotals, crewSize) {
+function renderMultiSummary(perLocation, archTotals, crewSize, aggregateScenarios) {
   const totalLocations = perLocation.length;
   const totalPowerW = perLocation.reduce((s, p) => s + p.loc.powerW, 0);
 
+  // Determine overall project ranking (sorted by cost, lowest first)
   const archEntries = Object.entries(archTotals).sort((a, b) => {
     const aCost = a[1].applicable === false ? Number.POSITIVE_INFINITY : a[1].cost;
     const bCost = b[1].applicable === false ? Number.POSITIVE_INFINITY : b[1].cost;
@@ -3230,25 +3231,11 @@ function renderMultiSummary(perLocation, archTotals, crewSize) {
   const lowestCost = applicableEntries.length ? applicableEntries[0][1].cost : 0;
   const fastestDays = applicableEntries.length ? Math.min(...applicableEntries.map(([, d]) => d.days)) : 0;
 
-  // Total project time (shortest applicable architecture)
-  const totalProjectDays = fastestDays;
+  // Build overall project ranking order (1 = best, etc.)
+  const archRanking = {};
+  archEntries.forEach(([name], idx) => { archRanking[name] = idx + 1; });
 
-  // Aggregate capacity across locations per architecture
-  const aggregateCapacity = {};
-  perLocation.forEach(({ scenarios }) => {
-    scenarios.forEach((s) => {
-      const arch = scenarioArchKey(s.name);
-      if (!aggregateCapacity[arch]) aggregateCapacity[arch] = { usedW: 0, totalW: 0, remainingW: 0, applicable: true };
-      if (!isScenarioApplicable(s) || !s.capacity || s.capacity.applicable === false) {
-        aggregateCapacity[arch].applicable = false;
-      } else {
-        aggregateCapacity[arch].usedW += (s.capacity.usedW || 0);
-        aggregateCapacity[arch].totalW += (s.capacity.totalW || 0);
-        aggregateCapacity[arch].remainingW += (s.capacity.remainingW || 0);
-      }
-    });
-  });
-
+  // Build overall project architecture cards
   const archCards = archEntries.map(([name, data]) => {
     const arch = scenarioArchKey(name);
     const isCheapest = data.applicable !== false && data.cost === lowestCost;
@@ -3268,57 +3255,46 @@ function renderMultiSummary(perLocation, archTotals, crewSize) {
     `;
   }).join("");
 
-  // Capacity summary bars
-  const capacityBarsHtml = ["ac", "cl2", "cl4"].map((arch) => {
-    const cap = aggregateCapacity[arch];
-    if (!cap) return "";
-    const label = arch === "ac" ? "CL1 AC" : arch === "cl2" ? "CL2 DC" : "CL4 FMP";
-    if (!cap.applicable) {
-      return `
-        <div class="capacity-bar-row is-unavailable" data-arch="${arch}">
-          <div class="capacity-bar-head"><span class="capacity-bar-name">${label}</span><span class="capacity-bar-value">N/A</span></div>
-          <div class="capacity-bar-track"><span class="capacity-bar-used" style="width:100%"></span></div>
-          <p class="capacity-bar-meta">Not applicable</p>
-        </div>`;
-    }
-    const chartTotal = Math.max(cap.totalW, 1);
-    const usedPct = clamp((cap.usedW / chartTotal) * 100, 0, 100);
-    return `
-      <div class="capacity-bar-row" data-arch="${arch}">
-        <div class="capacity-bar-head"><span class="capacity-bar-name">${label}</span><span class="capacity-bar-value">${whole(usedPct)}% used</span></div>
-        <div class="capacity-bar-track"><span class="capacity-bar-used" style="width:${usedPct}%"></span></div>
-        <p class="capacity-bar-meta">${whole(cap.remainingW)} W available of ${whole(cap.totalW)} W provisioned (all locations combined)</p>
-      </div>`;
-  }).join("");
-
-  // Per-location summary cards
-  const locationSummaryCards = perLocation.map(({ loc, scenarios }) => {
-    const sorted = sortScenariosByCost(scenarios);
-    const locApplicable = sorted.filter(isScenarioApplicable);
-    const locCheapest = locApplicable.length ? locApplicable[0] : null;
-    const locFastest = locApplicable.length ? locApplicable.reduce((a, b) => a.totalDays < b.totalDays ? a : b) : null;
+  // Per-IDF cards following the overall project ranking order
+  const idfCards = perLocation.map(({ loc, scenarios }) => {
+    // Sort scenarios in overall project ranking order
+    const sorted = [...scenarios].sort((a, b) => (archRanking[a.name] || 99) - (archRanking[b.name] || 99));
 
     const archPills = sorted.map((s) => {
       const arch = scenarioArchKey(s.name);
       const applicable = isScenarioApplicable(s);
-      const label = arch === "ac" ? "AC" : arch === "cl2" ? "CL2" : "CL4";
-      return `<span class="loc-summary-arch" data-arch="${arch}">${label}: ${applicable ? money(s.totalCost) : "N/A"}</span>`;
+      const label = s.name;
+      const rank = archRanking[s.name] || 99;
+      const rankLabel = rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd";
+      return `
+        <div class="idf-arch-row" data-arch="${arch}">
+          <span class="idf-arch-rank">#${rankLabel}</span>
+          <span class="idf-arch-name">${label}</span>
+          <span class="idf-arch-cost">${applicable ? money(s.totalCost) : "N/A"}</span>
+          <span class="idf-arch-time">${applicable ? `${num(s.totalDays, 1)} days` : scenarioWarningShortText(s)}</span>
+        </div>
+      `;
     }).join("");
 
     return `
-      <div class="loc-summary-card">
-        <div class="loc-summary-header">
-          <strong>${loc.name}</strong>
-          <span class="loc-summary-meta">${loc.powerW} W · ${loc.distanceFt} ft · ${loc.installationType}</span>
+      <div class="idf-summary-card">
+        <div class="idf-summary-header">
+          <div class="idf-summary-label">
+            <span class="idf-summary-label-tag">Location</span>
+            <strong class="idf-summary-name">${loc.name}</strong>
+          </div>
+          <div class="idf-summary-stats">
+            <span><b>Total Power</b> ${num(loc.powerW, 0)} W</span>
+            <span><b>Crew Size</b> ${crewSize} persons</span>
+          </div>
         </div>
-        <div class="loc-summary-archs">${archPills}</div>
-        <div class="loc-summary-footer">
-          ${locCheapest ? `<span>Best: ${money(locCheapest.totalCost)} (${scenarioShortLabel(locCheapest.name)})</span>` : ""}
-          ${locFastest ? `<span>Fastest: ${num(locFastest.totalDays, 1)} days (${scenarioShortLabel(locFastest.name)})</span>` : ""}
-        </div>
+        <div class="idf-arch-rows">${archPills}</div>
       </div>
     `;
   }).join("");
+
+  // Build overall project Gantt using aggregate scenarios
+  const overallGanttHtml = renderOverallProjectGantt(aggregateScenarios);
 
   document.getElementById("multiSummary").innerHTML = `
     <h2>Multi-Location Project Summary</h2>
@@ -3337,18 +3313,172 @@ function renderMultiSummary(perLocation, archTotals, crewSize) {
       </article>
       <article class="metric">
         <p>Project Duration (fastest arch)</p>
-        <h3>${totalProjectDays > 0 ? `${num(totalProjectDays, 1)} days` : "N/A"}</h3>
+        <h3>${fastestDays > 0 ? `${num(fastestDays, 1)} days` : "N/A"}</h3>
       </article>
     </div>
     <div class="metrics snapshot-scenarios">${archCards}</div>
-    <div class="multi-capacity-summary">
-      <h3>Overall Capacity (All Locations)</h3>
-      <div class="capacity-bar-chart">${capacityBarsHtml}</div>
+    <div class="multi-idf-cards">
+      <h3>Per-IDF Summary</h3>
+      ${idfCards}
     </div>
-    <div class="multi-location-summaries">
-      <h3>Location Overview</h3>
-      ${locationSummaryCards}
+    <div class="multi-gantt-overall">
+      <h3>Overall Project Timeline</h3>
+      ${overallGanttHtml}
     </div>
+  `;
+}
+
+function renderOverallProjectGantt(aggregateScenarios) {
+  const phaseOrder = [...new Set(aggregateScenarios.flatMap((s) => s.rows.map((r) => r.phase)))];
+  const applicableScenarios = aggregateScenarios.filter(isScenarioApplicable);
+  const maxDays = applicableScenarios.length ? Math.max(...applicableScenarios.map((s) => s.totalDays)) : 1;
+
+  const trackHtml = aggregateScenarios.map((scenario) => {
+    const applicable = isScenarioApplicable(scenario);
+    const trackBars = phaseOrder.map((phase, pi) => {
+      const phaseRows = scenario.rows.filter((r) => r.phase === phase);
+      const rawHours = phaseRows.reduce((sum, r) => sum + r.laborHours, 0);
+      const days = DESIGN_PHASES.has(phase) ? rawHours / 8 : rawHours / 8 / scenario.crewSize;
+      const pct = maxDays > 0 ? (days / maxDays) * 100 : 0;
+      const short = PHASE_NAMES_SHORT[phase] || phase;
+      const colorClass = GANTT_COLORS[pi % GANTT_COLORS.length];
+      return { short, days, pct, colorClass, phase };
+    }).filter((b) => applicable && b.days > 0);
+
+    const barHtml = trackBars.map((b) => `
+      <div class="gantt-bar ${b.colorClass}" style="width:${b.pct}%" title="${b.phase}: ${num(b.days,1)} days">
+        ${b.pct > 8 ? b.short : ""}
+        <span class="gantt-tooltip">${b.phase}<br/>${num(b.days,1)} days</span>
+      </div>
+    `).join("");
+
+    const label = scenarioShortLabel(scenario.name);
+    return `
+      <div class="gantt-scenario">
+        <div class="gantt-label-row">
+          <span class="gantt-scenario-name">${label}</span>
+          <span class="gantt-total-label">${applicable ? `${num(scenario.totalDays,1)} total days` : "N/A"}</span>
+          <span class="badge ${scenario.fit}">${scenario.fitText}</span>
+        </div>
+        <div class="gantt-track">${barHtml}</div>
+      </div>
+    `;
+  }).join("");
+
+  const legendItems = phaseOrder.map((phase, pi) => {
+    const colorClass = GANTT_COLORS[pi % GANTT_COLORS.length];
+    const short = PHASE_NAMES_SHORT[phase] || phase;
+    return `<span class="gantt-legend-item"><span class="gantt-legend-swatch ${colorClass}"></span>${short}</span>`;
+  }).join("");
+
+  return `
+    <div class="gantt-wrap">${trackHtml}</div>
+    <div class="gantt-legend">${legendItems}</div>
+  `;
+}
+
+function buildCapacityPieHtml(arch, capacity, scenarioName, size) {
+  const chartTotalW = Math.max(capacity.totalW || capacity.usedW || 0, 1);
+  const usedW = clamp(capacity.usedW || 0, 0, chartTotalW);
+  const remainingW = Math.max(0, capacity.remainingW ?? (chartTotalW - usedW));
+  const usedPct = capacity.applicable === false ? 100 : clamp((usedW / chartTotalW) * 100, 0, 100);
+  const remainingPct = capacity.applicable === false ? 0 : Math.max(0, 100 - usedPct);
+  const remainingPctLabel = remainingPct > 0 && remainingPct < 1 ? "<1%" : `${whole(remainingPct)}%`;
+  const pieStyle = capacity.applicable === false
+    ? "--used-pct: 100; --pie-color: rgba(95, 102, 116, 0.22);"
+    : `--used-pct: ${usedPct}; --pie-color: var(--arch-${arch});`;
+  const stats = [
+    { label: capacity.usedLabel || "In Use", value: `${whole(usedW)} W` },
+    { label: capacity.availableLabel || "Available", value: `${whole(remainingW)} W` },
+    { label: capacity.totalLabel || "Provisioned", value: `${whole(capacity.totalW)} W` },
+  ];
+  const sizeClass = size === "small" ? " capacity-card-sm" : "";
+
+  return `
+    <article class="capacity-card${capacity.applicable === false ? " is-unavailable" : ""}${sizeClass}" data-arch="${arch}">
+      <div class="capacity-card-head">
+        <p class="capacity-card-kicker">Future Capacity</p>
+        <h3>${scenarioName}</h3>
+        <p class="capacity-card-basis">${capacity.basis || ""}</p>
+      </div>
+      <div class="capacity-body">
+        <div class="capacity-pie" style="${pieStyle}" role="img" aria-label="${scenarioName} capacity">
+          <div class="capacity-pie-center">
+            <strong>${capacity.applicable === false ? "N/A" : remainingPctLabel}</strong>
+            <span>${capacity.applicable === false ? "limit" : "free"}</span>
+          </div>
+        </div>
+        <div class="capacity-stats">
+          ${stats.map((stat) => `<div class="capacity-stat"><span>${stat.label}</span><strong>${stat.value}</strong></div>`).join("")}
+        </div>
+      </div>
+      <div class="capacity-legend">
+        <span class="capacity-legend-item"><span class="capacity-swatch" style="--swatch:${capacity.applicable === false ? "rgba(95, 102, 116, 0.22)" : `var(--arch-${arch})`};"></span>Used</span>
+        <span class="capacity-legend-item"><span class="capacity-swatch capacity-swatch-free"></span>Available</span>
+      </div>
+      ${capacity.note ? `<p class="capacity-note">${capacity.note}</p>` : ""}
+    </article>
+  `;
+}
+
+function renderMultiCapacity(perLocation) {
+  const container = document.getElementById("multiCapacity");
+  if (!container) return;
+
+  const order = ["ac", "cl2", "cl4"];
+
+  // Aggregate capacity across all locations
+  const aggregateCapacity = {};
+  perLocation.forEach(({ scenarios }) => {
+    scenarios.forEach((s) => {
+      const arch = scenarioArchKey(s.name);
+      if (!aggregateCapacity[arch]) {
+        aggregateCapacity[arch] = { usedW: 0, totalW: 0, remainingW: 0, applicable: true, basis: "", note: "" };
+      }
+      if (!isScenarioApplicable(s) || !s.capacity || s.capacity.applicable === false) {
+        aggregateCapacity[arch].applicable = false;
+      } else {
+        aggregateCapacity[arch].usedW += (s.capacity.usedW || 0);
+        aggregateCapacity[arch].totalW += (s.capacity.totalW || 0);
+        aggregateCapacity[arch].remainingW += (s.capacity.remainingW || 0);
+        aggregateCapacity[arch].basis = s.capacity.basis || "";
+        aggregateCapacity[arch].note = "Aggregated across all locations";
+      }
+    });
+  });
+
+  // Overall pie charts
+  const overallPies = order.map((arch) => {
+    const cap = aggregateCapacity[arch];
+    if (!cap) return "";
+    const label = arch === "ac" ? "CL1 AC" : arch === "cl2" ? "CL2 DC" : "CL4 FMP";
+    return buildCapacityPieHtml(arch, cap, label, "normal");
+  }).join("");
+
+  // Per-IDF sub-pies
+  const idfSections = perLocation.map(({ loc, scenarios }) => {
+    const subPies = order.map((arch) => {
+      const scenario = scenarios.find((item) => scenarioArchKey(item.name) === arch);
+      if (!scenario || !scenario.capacity) return "";
+      return buildCapacityPieHtml(arch, scenario.capacity, scenarioShortLabel(scenario.name), "small");
+    }).join("");
+    return `
+      <div class="multi-cap-idf">
+        <h4>${loc.name} <span class="multi-cap-idf-meta">${num(loc.powerW, 0)} W</span></h4>
+        <div class="capacity-grid capacity-grid-sm">${subPies}</div>
+      </div>
+    `;
+  }).join("");
+
+  container.innerHTML = `
+    <div class="section-head">
+      <h2>Power Capacity</h2>
+      <p>Overall and per-IDF future capacity by power architecture.</p>
+    </div>
+    <h3>Overall Capacity (All Locations)</h3>
+    <div class="capacity-grid">${overallPies}</div>
+    <h3 class="multi-cap-idf-heading">Per-IDF Capacity</h3>
+    ${idfSections}
   `;
 }
 
@@ -3407,9 +3537,7 @@ function renderMultiBreakdown(perLocation) {
       `;
     }).join("");
 
-    const ganttHtml = renderMultiGantt(scenarios);
     const lineItemHtml = buildPhaseSectionsHtml(sorted);
-    const capacityHtml = buildCapacityBarChartHtml(sorted);
 
     return `
       <details class="loc-breakdown-collapsible" ${index === 0 ? "open" : ""}>
@@ -3426,14 +3554,6 @@ function renderMultiBreakdown(perLocation) {
             </div>
             ${lineItemHtml}
           </div>
-          <div class="loc-section-block loc-capacity-chart">
-            <div class="section-head section-head-compact">
-              <h5>Future Capacity Bars</h5>
-              <p>Remaining capacity view by architecture for this location.</p>
-            </div>
-            ${capacityHtml}
-          </div>
-          <div class="loc-gantt">${ganttHtml}</div>
         </div>
       </details>
     `;
@@ -3442,7 +3562,7 @@ function renderMultiBreakdown(perLocation) {
   document.getElementById("multiLocationBreakdown").innerHTML = `
     <div class="section-head">
       <h2>Per-Location Breakdown</h2>
-      <p>Expand each location for detailed cost, timeline, and capacity analysis.</p>
+      <p>Expand each location for detailed cost analysis.</p>
     </div>
     ${html}
   `;

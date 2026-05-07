@@ -1166,81 +1166,161 @@ th {
   margin-bottom: 0;
 }
 
-/* ─── Multi Summary: Capacity & Location Overview ─────── */
-.multi-capacity-summary {
+/* ─── Multi Summary: Per-IDF Cards & Overall Gantt ────── */
+.multi-idf-cards {
   margin-top: 1.2rem;
   padding-top: 0.8rem;
   border-top: 1px solid var(--line);
 }
 
-.multi-capacity-summary h3 {
+.multi-idf-cards h3 {
   font-size: 0.92rem;
   margin: 0 0 0.6rem;
 }
 
-.multi-location-summaries {
-  margin-top: 1.2rem;
-  padding-top: 0.8rem;
-  border-top: 1px solid var(--line);
-}
-
-.multi-location-summaries h3 {
-  font-size: 0.92rem;
-  margin: 0 0 0.6rem;
-}
-
-.loc-summary-card {
+.idf-summary-card {
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.6rem 0.8rem;
-  margin-bottom: 0.45rem;
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.5rem;
   background: #fff;
 }
 
-.loc-summary-header {
+.idf-summary-header {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.loc-summary-header strong {
-  font-size: 0.88rem;
-}
-
-.loc-summary-meta {
-  font-size: 0.76rem;
-  color: var(--muted);
-}
-
-.loc-summary-archs {
-  display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
-  margin: 0.35rem 0;
+  margin-bottom: 0.4rem;
 }
 
-.loc-summary-arch {
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 0.15rem 0.5rem;
-  border-radius: 6px;
-  background: rgba(15, 118, 110, 0.06);
-  border: 1px solid var(--line);
+.idf-summary-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
-.loc-summary-arch[data-arch="ac"] { border-left: 3px solid var(--arch-ac); }
-.loc-summary-arch[data-arch="cl2"] { border-left: 3px solid var(--arch-cl2); }
-.loc-summary-arch[data-arch="cl4"] { border-left: 3px solid var(--arch-cl4); }
+.idf-summary-label-tag {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
 
-.loc-summary-footer {
+.idf-summary-name {
+  font-size: 0.95rem;
+}
+
+.idf-summary-stats {
   display: flex;
   gap: 1rem;
-  flex-wrap: wrap;
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   color: var(--muted);
-  margin-top: 0.2rem;
+}
+
+.idf-summary-stats b {
+  color: var(--ink);
+  margin-right: 0.25rem;
+}
+
+.idf-arch-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.idf-arch-row {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  border-left: 3px solid var(--line);
+}
+
+.idf-arch-row[data-arch="ac"]  { border-left-color: var(--arch-ac); background: rgba(29, 78, 216, 0.03); }
+.idf-arch-row[data-arch="cl2"] { border-left-color: var(--arch-cl2); background: rgba(124, 58, 237, 0.03); }
+.idf-arch-row[data-arch="cl4"] { border-left-color: var(--arch-cl4); background: rgba(15, 118, 110, 0.03); }
+
+.idf-arch-rank {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.idf-arch-name {
+  font-weight: 600;
+}
+
+.idf-arch-cost {
+  font-weight: 700;
+  text-align: right;
+}
+
+.idf-arch-time {
+  color: var(--muted);
+  text-align: right;
+  min-width: 5rem;
+}
+
+.multi-gantt-overall {
+  margin-top: 1.2rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.multi-gantt-overall h3 {
+  font-size: 0.92rem;
+  margin: 0 0 0.6rem;
+}
+
+/* ─── Multi Capacity Pie Charts ───────────────────────── */
+.multi-cap-idf-heading {
+  font-size: 0.92rem;
+  margin: 1.2rem 0 0.6rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.multi-cap-idf {
+  margin-bottom: 1rem;
+}
+
+.multi-cap-idf h4 {
+  font-size: 0.88rem;
+  margin: 0 0 0.4rem;
+}
+
+.multi-cap-idf-meta {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.capacity-grid-sm .capacity-card {
+  padding: 0.5rem;
+}
+
+.capacity-card-sm {
+  font-size: 0.85em;
+}
+
+.capacity-card-sm .capacity-pie {
+  width: 80px;
+  height: 80px;
+}
+
+.capacity-card-sm .capacity-card-head h3 {
+  font-size: 0.82rem;
+}
+
+.capacity-card-sm .capacity-stat span,
+.capacity-card-sm .capacity-stat strong {
+  font-size: 0.75rem;
 }
 
 .loc-arch-pills {
