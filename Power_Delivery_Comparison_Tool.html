@@ -1098,7 +1098,6 @@ th {
   border-radius: 14px;
   background: linear-gradient(160deg, rgba(244, 240, 232, 0.65), #fff);
   padding: 0.8rem;
-  margin-bottom: 0.7rem;
 }
 
 .loc-breakdown-card h4 {
@@ -1113,6 +1112,145 @@ th {
   font-size: 0.82rem;
   color: var(--muted);
   margin-bottom: 0.5rem;
+}
+
+/* ─── Collapsible Location Breakout ──────────────────────── */
+.loc-breakdown-collapsible {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(244, 240, 232, 0.65), #fff);
+  margin-bottom: 0.7rem;
+  overflow: hidden;
+}
+
+.loc-breakdown-collapsible[open] {
+  box-shadow: 0 4px 16px rgba(8, 20, 40, 0.08);
+}
+
+.loc-breakdown-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  gap: 0.75rem;
+}
+
+.loc-breakdown-summary::-webkit-details-marker {
+  display: none;
+}
+
+.loc-breakdown-summary::before {
+  content: "▶";
+  font-size: 0.7rem;
+  color: var(--accent);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.loc-breakdown-collapsible[open] > .loc-breakdown-summary::before {
+  transform: rotate(90deg);
+}
+
+.loc-breakdown-summary:hover {
+  background: rgba(15, 118, 110, 0.04);
+}
+
+.loc-breakdown-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.loc-breakdown-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.loc-breakdown-collapsible .loc-breakdown-card {
+  border: none;
+  border-radius: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  margin-bottom: 0;
+}
+
+/* ─── Multi Summary: Capacity & Location Overview ─────── */
+.multi-capacity-summary {
+  margin-top: 1.2rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.multi-capacity-summary h3 {
+  font-size: 0.92rem;
+  margin: 0 0 0.6rem;
+}
+
+.multi-location-summaries {
+  margin-top: 1.2rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.multi-location-summaries h3 {
+  font-size: 0.92rem;
+  margin: 0 0 0.6rem;
+}
+
+.loc-summary-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.45rem;
+  background: #fff;
+}
+
+.loc-summary-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.loc-summary-header strong {
+  font-size: 0.88rem;
+}
+
+.loc-summary-meta {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.loc-summary-archs {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0.35rem 0;
+}
+
+.loc-summary-arch {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(15, 118, 110, 0.06);
+  border: 1px solid var(--line);
+}
+
+.loc-summary-arch[data-arch="ac"] { border-left: 3px solid var(--arch-ac); }
+.loc-summary-arch[data-arch="cl2"] { border-left: 3px solid var(--arch-cl2); }
+.loc-summary-arch[data-arch="cl4"] { border-left: 3px solid var(--arch-cl4); }
+
+.loc-summary-footer {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
 }
 
 .loc-arch-pills {
@@ -5587,19 +5725,95 @@ function renderMultiSummary(perLocation, archTotals, crewSize) {
   });
   const applicableEntries = archEntries.filter(([, data]) => data.applicable !== false);
   const lowestCost = applicableEntries.length ? applicableEntries[0][1].cost : 0;
+  const fastestDays = applicableEntries.length ? Math.min(...applicableEntries.map(([, d]) => d.days)) : 0;
+
+  // Total project time (shortest applicable architecture)
+  const totalProjectDays = fastestDays;
+
+  // Aggregate capacity across locations per architecture
+  const aggregateCapacity = {};
+  perLocation.forEach(({ scenarios }) => {
+    scenarios.forEach((s) => {
+      const arch = scenarioArchKey(s.name);
+      if (!aggregateCapacity[arch]) aggregateCapacity[arch] = { usedW: 0, totalW: 0, remainingW: 0, applicable: true };
+      if (!isScenarioApplicable(s) || !s.capacity || s.capacity.applicable === false) {
+        aggregateCapacity[arch].applicable = false;
+      } else {
+        aggregateCapacity[arch].usedW += (s.capacity.usedW || 0);
+        aggregateCapacity[arch].totalW += (s.capacity.totalW || 0);
+        aggregateCapacity[arch].remainingW += (s.capacity.remainingW || 0);
+      }
+    });
+  });
 
   const archCards = archEntries.map(([name, data]) => {
     const arch = scenarioArchKey(name);
     const isCheapest = data.applicable !== false && data.cost === lowestCost;
+    const isFastest = data.applicable !== false && data.days === fastestDays;
     const cheapClass = isCheapest ? " cheapest" : "";
-    const badge = isCheapest ? `<div class="snap-badges"><span class="snap-badge good">Lowest Total</span></div>` : "";
+    const badges = [
+      isCheapest ? `<span class="snap-badge good">Lowest Total</span>` : "",
+      isFastest ? `<span class="snap-badge fast">Fastest</span>` : "",
+    ].filter(Boolean).join("");
     return `
       <article class="metric scenario-metric${cheapClass}" data-arch="${arch}">
         <p class="scenario-metric-name">${name}</p>
         <h3>${data.applicable === false ? "N/A" : money(data.cost)}</h3>
         <p>${data.applicable === false ? data.warningText : `${num(data.days, 1)} total calendar days`}</p>
-        ${badge}
+        ${badges ? `<div class="snap-badges">${badges}</div>` : ""}
       </article>
+    `;
+  }).join("");
+
+  // Capacity summary bars
+  const capacityBarsHtml = ["ac", "cl2", "cl4"].map((arch) => {
+    const cap = aggregateCapacity[arch];
+    if (!cap) return "";
+    const label = arch === "ac" ? "CL1 AC" : arch === "cl2" ? "CL2 DC" : "CL4 FMP";
+    if (!cap.applicable) {
+      return `
+        <div class="capacity-bar-row is-unavailable" data-arch="${arch}">
+          <div class="capacity-bar-head"><span class="capacity-bar-name">${label}</span><span class="capacity-bar-value">N/A</span></div>
+          <div class="capacity-bar-track"><span class="capacity-bar-used" style="width:100%"></span></div>
+          <p class="capacity-bar-meta">Not applicable</p>
+        </div>`;
+    }
+    const chartTotal = Math.max(cap.totalW, 1);
+    const usedPct = clamp((cap.usedW / chartTotal) * 100, 0, 100);
+    return `
+      <div class="capacity-bar-row" data-arch="${arch}">
+        <div class="capacity-bar-head"><span class="capacity-bar-name">${label}</span><span class="capacity-bar-value">${whole(usedPct)}% used</span></div>
+        <div class="capacity-bar-track"><span class="capacity-bar-used" style="width:${usedPct}%"></span></div>
+        <p class="capacity-bar-meta">${whole(cap.remainingW)} W available of ${whole(cap.totalW)} W provisioned (all locations combined)</p>
+      </div>`;
+  }).join("");
+
+  // Per-location summary cards
+  const locationSummaryCards = perLocation.map(({ loc, scenarios }) => {
+    const sorted = sortScenariosByCost(scenarios);
+    const locApplicable = sorted.filter(isScenarioApplicable);
+    const locCheapest = locApplicable.length ? locApplicable[0] : null;
+    const locFastest = locApplicable.length ? locApplicable.reduce((a, b) => a.totalDays < b.totalDays ? a : b) : null;
+
+    const archPills = sorted.map((s) => {
+      const arch = scenarioArchKey(s.name);
+      const applicable = isScenarioApplicable(s);
+      const label = arch === "ac" ? "AC" : arch === "cl2" ? "CL2" : "CL4";
+      return `<span class="loc-summary-arch" data-arch="${arch}">${label}: ${applicable ? money(s.totalCost) : "N/A"}</span>`;
+    }).join("");
+
+    return `
+      <div class="loc-summary-card">
+        <div class="loc-summary-header">
+          <strong>${loc.name}</strong>
+          <span class="loc-summary-meta">${loc.powerW} W · ${loc.distanceFt} ft · ${loc.installationType}</span>
+        </div>
+        <div class="loc-summary-archs">${archPills}</div>
+        <div class="loc-summary-footer">
+          ${locCheapest ? `<span>Best: ${money(locCheapest.totalCost)} (${scenarioShortLabel(locCheapest.name)})</span>` : ""}
+          ${locFastest ? `<span>Fastest: ${num(locFastest.totalDays, 1)} days (${scenarioShortLabel(locFastest.name)})</span>` : ""}
+        </div>
+      </div>
     `;
   }).join("");
 
@@ -5618,8 +5832,20 @@ function renderMultiSummary(perLocation, archTotals, crewSize) {
         <p>Crew Size</p>
         <h3>${crewSize} persons</h3>
       </article>
+      <article class="metric">
+        <p>Project Duration (fastest arch)</p>
+        <h3>${totalProjectDays > 0 ? `${num(totalProjectDays, 1)} days` : "N/A"}</h3>
+      </article>
     </div>
     <div class="metrics snapshot-scenarios">${archCards}</div>
+    <div class="multi-capacity-summary">
+      <h3>Overall Capacity (All Locations)</h3>
+      <div class="capacity-bar-chart">${capacityBarsHtml}</div>
+    </div>
+    <div class="multi-location-summaries">
+      <h3>Location Overview</h3>
+      ${locationSummaryCards}
+    </div>
   `;
 }
 
@@ -5663,7 +5889,7 @@ function renderMultiGantt(scenarios) {
 }
 
 function renderMultiBreakdown(perLocation) {
-  const html = perLocation.map(({ loc, scenarios }) => {
+  const html = perLocation.map(({ loc, scenarios }, index) => {
     const sorted = sortScenariosByCost(scenarios);
     const pills = sorted.map((s) => {
       const applicable = isScenarioApplicable(s);
@@ -5683,37 +5909,37 @@ function renderMultiBreakdown(perLocation) {
     const capacityHtml = buildCapacityBarChartHtml(sorted);
 
     return `
-      <div class="loc-breakdown-card">
-        <h4>${loc.name}</h4>
-        <div class="loc-meta">
-          <span>${loc.powerW} W</span>
-          <span>${loc.distanceFt} ft</span>
-          <span>${loc.installationType}</span>
-        </div>
-        <div class="loc-arch-pills">${pills}</div>
-        <div class="loc-section-block loc-line-items">
-          <div class="section-head section-head-compact">
-            <h5>Line Item Breakout</h5>
-            <p>Phase-by-phase cost breakout for this location.</p>
+      <details class="loc-breakdown-collapsible" ${index === 0 ? "open" : ""}>
+        <summary class="loc-breakdown-summary">
+          <span class="loc-breakdown-title">${loc.name}</span>
+          <span class="loc-breakdown-meta">${loc.powerW} W · ${loc.distanceFt} ft · ${loc.installationType}</span>
+        </summary>
+        <div class="loc-breakdown-card">
+          <div class="loc-arch-pills">${pills}</div>
+          <div class="loc-section-block loc-line-items">
+            <div class="section-head section-head-compact">
+              <h5>Line Item Breakout</h5>
+              <p>Phase-by-phase cost breakout for this location.</p>
+            </div>
+            ${lineItemHtml}
           </div>
-          ${lineItemHtml}
-        </div>
-        <div class="loc-section-block loc-capacity-chart">
-          <div class="section-head section-head-compact">
-            <h5>Future Capacity Bars</h5>
-            <p>Remaining capacity view by architecture for this location.</p>
+          <div class="loc-section-block loc-capacity-chart">
+            <div class="section-head section-head-compact">
+              <h5>Future Capacity Bars</h5>
+              <p>Remaining capacity view by architecture for this location.</p>
+            </div>
+            ${capacityHtml}
           </div>
-          ${capacityHtml}
+          <div class="loc-gantt">${ganttHtml}</div>
         </div>
-        <div class="loc-gantt">${ganttHtml}</div>
-      </div>
+      </details>
     `;
   }).join("");
 
   document.getElementById("multiLocationBreakdown").innerHTML = `
     <div class="section-head">
       <h2>Per-Location Breakdown</h2>
-      <p>Cost and time for each IDF location across all three architectures.</p>
+      <p>Expand each location for detailed cost, timeline, and capacity analysis.</p>
     </div>
     ${html}
   `;

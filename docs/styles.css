@@ -1088,7 +1088,6 @@ th {
   border-radius: 14px;
   background: linear-gradient(160deg, rgba(244, 240, 232, 0.65), #fff);
   padding: 0.8rem;
-  margin-bottom: 0.7rem;
 }
 
 .loc-breakdown-card h4 {
@@ -1103,6 +1102,145 @@ th {
   font-size: 0.82rem;
   color: var(--muted);
   margin-bottom: 0.5rem;
+}
+
+/* ─── Collapsible Location Breakout ──────────────────────── */
+.loc-breakdown-collapsible {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(244, 240, 232, 0.65), #fff);
+  margin-bottom: 0.7rem;
+  overflow: hidden;
+}
+
+.loc-breakdown-collapsible[open] {
+  box-shadow: 0 4px 16px rgba(8, 20, 40, 0.08);
+}
+
+.loc-breakdown-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  gap: 0.75rem;
+}
+
+.loc-breakdown-summary::-webkit-details-marker {
+  display: none;
+}
+
+.loc-breakdown-summary::before {
+  content: "▶";
+  font-size: 0.7rem;
+  color: var(--accent);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.loc-breakdown-collapsible[open] > .loc-breakdown-summary::before {
+  transform: rotate(90deg);
+}
+
+.loc-breakdown-summary:hover {
+  background: rgba(15, 118, 110, 0.04);
+}
+
+.loc-breakdown-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.loc-breakdown-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.loc-breakdown-collapsible .loc-breakdown-card {
+  border: none;
+  border-radius: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  margin-bottom: 0;
+}
+
+/* ─── Multi Summary: Capacity & Location Overview ─────── */
+.multi-capacity-summary {
+  margin-top: 1.2rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.multi-capacity-summary h3 {
+  font-size: 0.92rem;
+  margin: 0 0 0.6rem;
+}
+
+.multi-location-summaries {
+  margin-top: 1.2rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.multi-location-summaries h3 {
+  font-size: 0.92rem;
+  margin: 0 0 0.6rem;
+}
+
+.loc-summary-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.45rem;
+  background: #fff;
+}
+
+.loc-summary-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.loc-summary-header strong {
+  font-size: 0.88rem;
+}
+
+.loc-summary-meta {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.loc-summary-archs {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0.35rem 0;
+}
+
+.loc-summary-arch {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(15, 118, 110, 0.06);
+  border: 1px solid var(--line);
+}
+
+.loc-summary-arch[data-arch="ac"] { border-left: 3px solid var(--arch-ac); }
+.loc-summary-arch[data-arch="cl2"] { border-left: 3px solid var(--arch-cl2); }
+.loc-summary-arch[data-arch="cl4"] { border-left: 3px solid var(--arch-cl4); }
+
+.loc-summary-footer {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
 }
 
 .loc-arch-pills {

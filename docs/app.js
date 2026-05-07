@@ -3228,19 +3228,95 @@ function renderMultiSummary(perLocation, archTotals, crewSize) {
   });
   const applicableEntries = archEntries.filter(([, data]) => data.applicable !== false);
   const lowestCost = applicableEntries.length ? applicableEntries[0][1].cost : 0;
+  const fastestDays = applicableEntries.length ? Math.min(...applicableEntries.map(([, d]) => d.days)) : 0;
+
+  // Total project time (shortest applicable architecture)
+  const totalProjectDays = fastestDays;
+
+  // Aggregate capacity across locations per architecture
+  const aggregateCapacity = {};
+  perLocation.forEach(({ scenarios }) => {
+    scenarios.forEach((s) => {
+      const arch = scenarioArchKey(s.name);
+      if (!aggregateCapacity[arch]) aggregateCapacity[arch] = { usedW: 0, totalW: 0, remainingW: 0, applicable: true };
+      if (!isScenarioApplicable(s) || !s.capacity || s.capacity.applicable === false) {
+        aggregateCapacity[arch].applicable = false;
+      } else {
+        aggregateCapacity[arch].usedW += (s.capacity.usedW || 0);
+        aggregateCapacity[arch].totalW += (s.capacity.totalW || 0);
+        aggregateCapacity[arch].remainingW += (s.capacity.remainingW || 0);
+      }
+    });
+  });
 
   const archCards = archEntries.map(([name, data]) => {
     const arch = scenarioArchKey(name);
     const isCheapest = data.applicable !== false && data.cost === lowestCost;
+    const isFastest = data.applicable !== false && data.days === fastestDays;
     const cheapClass = isCheapest ? " cheapest" : "";
-    const badge = isCheapest ? `<div class="snap-badges"><span class="snap-badge good">Lowest Total</span></div>` : "";
+    const badges = [
+      isCheapest ? `<span class="snap-badge good">Lowest Total</span>` : "",
+      isFastest ? `<span class="snap-badge fast">Fastest</span>` : "",
+    ].filter(Boolean).join("");
     return `
       <article class="metric scenario-metric${cheapClass}" data-arch="${arch}">
         <p class="scenario-metric-name">${name}</p>
         <h3>${data.applicable === false ? "N/A" : money(data.cost)}</h3>
         <p>${data.applicable === false ? data.warningText : `${num(data.days, 1)} total calendar days`}</p>
-        ${badge}
+        ${badges ? `<div class="snap-badges">${badges}</div>` : ""}
       </article>
+    `;
+  }).join("");
+
+  // Capacity summary bars
+  const capacityBarsHtml = ["ac", "cl2", "cl4"].map((arch) => {
+    const cap = aggregateCapacity[arch];
+    if (!cap) return "";
+    const label = arch === "ac" ? "CL1 AC" : arch === "cl2" ? "CL2 DC" : "CL4 FMP";
+    if (!cap.applicable) {
+      return `
+        <div class="capacity-bar-row is-unavailable" data-arch="${arch}">
+          <div class="capacity-bar-head"><span class="capacity-bar-name">${label}</span><span class="capacity-bar-value">N/A</span></div>
+          <div class="capacity-bar-track"><span class="capacity-bar-used" style="width:100%"></span></div>
+          <p class="capacity-bar-meta">Not applicable</p>
+        </div>`;
+    }
+    const chartTotal = Math.max(cap.totalW, 1);
+    const usedPct = clamp((cap.usedW / chartTotal) * 100, 0, 100);
+    return `
+      <div class="capacity-bar-row" data-arch="${arch}">
+        <div class="capacity-bar-head"><span class="capacity-bar-name">${label}</span><span class="capacity-bar-value">${whole(usedPct)}% used</span></div>
+        <div class="capacity-bar-track"><span class="capacity-bar-used" style="width:${usedPct}%"></span></div>
+        <p class="capacity-bar-meta">${whole(cap.remainingW)} W available of ${whole(cap.totalW)} W provisioned (all locations combined)</p>
+      </div>`;
+  }).join("");
+
+  // Per-location summary cards
+  const locationSummaryCards = perLocation.map(({ loc, scenarios }) => {
+    const sorted = sortScenariosByCost(scenarios);
+    const locApplicable = sorted.filter(isScenarioApplicable);
+    const locCheapest = locApplicable.length ? locApplicable[0] : null;
+    const locFastest = locApplicable.length ? locApplicable.reduce((a, b) => a.totalDays < b.totalDays ? a : b) : null;
+
+    const archPills = sorted.map((s) => {
+      const arch = scenarioArchKey(s.name);
+      const applicable = isScenarioApplicable(s);
+      const label = arch === "ac" ? "AC" : arch === "cl2" ? "CL2" : "CL4";
+      return `<span class="loc-summary-arch" data-arch="${arch}">${label}: ${applicable ? money(s.totalCost) : "N/A"}</span>`;
+    }).join("");
+
+    return `
+      <div class="loc-summary-card">
+        <div class="loc-summary-header">
+          <strong>${loc.name}</strong>
+          <span class="loc-summary-meta">${loc.powerW} W · ${loc.distanceFt} ft · ${loc.installationType}</span>
+        </div>
+        <div class="loc-summary-archs">${archPills}</div>
+        <div class="loc-summary-footer">
+          ${locCheapest ? `<span>Best: ${money(locCheapest.totalCost)} (${scenarioShortLabel(locCheapest.name)})</span>` : ""}
+          ${locFastest ? `<span>Fastest: ${num(locFastest.totalDays, 1)} days (${scenarioShortLabel(locFastest.name)})</span>` : ""}
+        </div>
+      </div>
     `;
   }).join("");
 
@@ -3259,8 +3335,20 @@ function renderMultiSummary(perLocation, archTotals, crewSize) {
         <p>Crew Size</p>
         <h3>${crewSize} persons</h3>
       </article>
+      <article class="metric">
+        <p>Project Duration (fastest arch)</p>
+        <h3>${totalProjectDays > 0 ? `${num(totalProjectDays, 1)} days` : "N/A"}</h3>
+      </article>
     </div>
     <div class="metrics snapshot-scenarios">${archCards}</div>
+    <div class="multi-capacity-summary">
+      <h3>Overall Capacity (All Locations)</h3>
+      <div class="capacity-bar-chart">${capacityBarsHtml}</div>
+    </div>
+    <div class="multi-location-summaries">
+      <h3>Location Overview</h3>
+      ${locationSummaryCards}
+    </div>
   `;
 }
 
@@ -3304,7 +3392,7 @@ function renderMultiGantt(scenarios) {
 }
 
 function renderMultiBreakdown(perLocation) {
-  const html = perLocation.map(({ loc, scenarios }) => {
+  const html = perLocation.map(({ loc, scenarios }, index) => {
     const sorted = sortScenariosByCost(scenarios);
     const pills = sorted.map((s) => {
       const applicable = isScenarioApplicable(s);
@@ -3324,37 +3412,37 @@ function renderMultiBreakdown(perLocation) {
     const capacityHtml = buildCapacityBarChartHtml(sorted);
 
     return `
-      <div class="loc-breakdown-card">
-        <h4>${loc.name}</h4>
-        <div class="loc-meta">
-          <span>${loc.powerW} W</span>
-          <span>${loc.distanceFt} ft</span>
-          <span>${loc.installationType}</span>
-        </div>
-        <div class="loc-arch-pills">${pills}</div>
-        <div class="loc-section-block loc-line-items">
-          <div class="section-head section-head-compact">
-            <h5>Line Item Breakout</h5>
-            <p>Phase-by-phase cost breakout for this location.</p>
+      <details class="loc-breakdown-collapsible" ${index === 0 ? "open" : ""}>
+        <summary class="loc-breakdown-summary">
+          <span class="loc-breakdown-title">${loc.name}</span>
+          <span class="loc-breakdown-meta">${loc.powerW} W · ${loc.distanceFt} ft · ${loc.installationType}</span>
+        </summary>
+        <div class="loc-breakdown-card">
+          <div class="loc-arch-pills">${pills}</div>
+          <div class="loc-section-block loc-line-items">
+            <div class="section-head section-head-compact">
+              <h5>Line Item Breakout</h5>
+              <p>Phase-by-phase cost breakout for this location.</p>
+            </div>
+            ${lineItemHtml}
           </div>
-          ${lineItemHtml}
-        </div>
-        <div class="loc-section-block loc-capacity-chart">
-          <div class="section-head section-head-compact">
-            <h5>Future Capacity Bars</h5>
-            <p>Remaining capacity view by architecture for this location.</p>
+          <div class="loc-section-block loc-capacity-chart">
+            <div class="section-head section-head-compact">
+              <h5>Future Capacity Bars</h5>
+              <p>Remaining capacity view by architecture for this location.</p>
+            </div>
+            ${capacityHtml}
           </div>
-          ${capacityHtml}
+          <div class="loc-gantt">${ganttHtml}</div>
         </div>
-        <div class="loc-gantt">${ganttHtml}</div>
-      </div>
+      </details>
     `;
   }).join("");
 
   document.getElementById("multiLocationBreakdown").innerHTML = `
     <div class="section-head">
       <h2>Per-Location Breakdown</h2>
-      <p>Cost and time for each IDF location across all three architectures.</p>
+      <p>Expand each location for detailed cost, timeline, and capacity analysis.</p>
     </div>
     ${html}
   `;
