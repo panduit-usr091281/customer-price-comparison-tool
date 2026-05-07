@@ -24,12 +24,20 @@
     <main class="app-shell">
     <header class="hero nav-target" id="overview" data-nav-label="Overview">
       <p class="kicker">Customer Price Comparison Tool</p>
-      <h1>Power Architecture Cost and Time Comparator</h1>
+      <h1>Power Architecture Cost and Time Comparison</h1>
       <p>
         Enter required load and distance. The tool generates a line-item build comparison for
         Class 1 AC, Class 2 DC line power, and Class 4 Fault Managed Power.
       </p>
     </header>
+
+    <div class="project-toolbar card" id="projectToolbar" hidden>
+      <div>
+        <p class="project-toolbar-kicker">Project Locked</p>
+        <p class="project-toolbar-text">Inputs are locked after generation. Clear the project to make edits.</p>
+      </div>
+      <button id="clearProjectBtn" type="button" class="btn-secondary">Clear Project</button>
+    </div>
 
     <!-- Mode Toggle -->
     <section class="mode-toggle card nav-target" id="analysisMode" data-nav-label="Mode">
@@ -141,7 +149,6 @@
         </label>
       </div>
 
-      <button id="calculateBtn" type="button">Generate Comparison</button>
     </section>
 
     <!-- Multi-Location Inputs -->
@@ -166,7 +173,6 @@
 
       <div class="location-actions">
         <button id="addLocationBtn" type="button" class="btn-secondary">+ Add Location</button>
-        <button id="calculateMultiBtn" type="button">Generate Multi-Location Comparison</button>
       </div>
     </section>
 
@@ -216,32 +222,36 @@
           </div>
         </label>
       </div>
+      <div class="project-generate-row">
+        <button id="calculateProjectBtn" type="button">Generate Comparison</button>
+      </div>
+    </section>
+
+    <section class="export-bar card" id="exportPackage" hidden>
+      <div class="section-head">
+        <h2>Export Customer Package</h2>
+        <p>Download a formatted report for customer delivery.</p>
+      </div>
+      <div class="export-actions">
+        <input type="text" id="projectName" placeholder="Project Name (e.g., Building A Power Study)" class="export-input" />
+        <input type="text" id="customerName" placeholder="Customer / Owner Name" class="export-input" />
+        <input type="text" id="preparedBy" placeholder="Prepared By" class="export-input" />
+        <div class="export-buttons">
+          <button id="exportPdfBtn" type="button" class="btn-export btn-pdf">Export PDF</button>
+          <button id="exportExcelBtn" type="button" class="btn-export btn-excel">Export Excel</button>
+        </div>
+      </div>
     </section>
 
     <!-- Multi-Location Output -->
     <div id="multiOutputArea" class="output-hidden">
       <section class="summary card nav-target" id="multiSummary" data-nav-label="Multi Summary" aria-live="polite"></section>
       <section class="card nav-target" id="multiLocationBreakdown" data-nav-label="Location Breakdown"></section>
+      <section class="phase-sections card nav-target" id="multiGrandTotals" data-nav-label="Project Totals"></section>
     </div>
 
     <!-- Single Location Output -->
     <div id="outputArea" class="output-hidden">
-      <section class="export-bar card nav-target" id="exportPackage" data-nav-label="Export">
-        <div class="section-head">
-          <h2>Export Customer Package</h2>
-          <p>Download a formatted report for customer delivery.</p>
-        </div>
-        <div class="export-actions">
-          <input type="text" id="projectName" placeholder="Project Name (e.g., Building A Power Study)" class="export-input" />
-          <input type="text" id="customerName" placeholder="Customer / Owner Name" class="export-input" />
-          <input type="text" id="preparedBy" placeholder="Prepared By" class="export-input" />
-          <div class="export-buttons">
-            <button id="exportPdfBtn" type="button" class="btn-export btn-pdf">Export PDF</button>
-            <button id="exportExcelBtn" type="button" class="btn-export btn-excel">Export Excel</button>
-          </div>
-        </div>
-      </section>
-
       <section class="summary card nav-target" id="summary" data-nav-label="Snapshot" aria-live="polite"></section>
 
       <section class="phase-sections card nav-target" id="phaseSections" data-nav-label="Phase Breakdown">
@@ -297,9 +307,9 @@
   </main>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="vendor/jspdf.umd.min.js"></script>
+  <script src="vendor/jspdf.plugin.autotable.min.js"></script>
+  <script src="vendor/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

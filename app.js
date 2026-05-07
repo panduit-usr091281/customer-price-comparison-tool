@@ -1386,8 +1386,12 @@ function scenarioArchKey(name) {
   return "";
 }
 
-function renderPhaseSections(scenarios) {
+function buildPhaseSectionsHtml(scenarios) {
   const phaseOrder = [...new Set(scenarios.flatMap((s) => s.rows.map((r) => r.phase)))];
+  if (!phaseOrder.length) {
+    return '<p class="subtle">No phase line items are available for this selection.</p>';
+  }
+
   const labels = scenarios.map((s) => scenarioShortLabel(s.name));
 
   const html = phaseOrder
@@ -1473,7 +1477,11 @@ function renderPhaseSections(scenarios) {
     })
     .join("");
 
-  document.getElementById("phaseBreakdown").innerHTML = `<div class="phase-grid">${html}</div>`;
+  return `<div class="phase-grid">${html}</div>`;
+}
+
+function renderPhaseSections(scenarios) {
+  document.getElementById("phaseBreakdown").innerHTML = buildPhaseSectionsHtml(scenarios);
 }
 
 const GANTT_COLORS = ["gantt-bar-0","gantt-bar-1","gantt-bar-2","gantt-bar-3","gantt-bar-4","gantt-bar-5"];
@@ -1563,6 +1571,8 @@ function resetLaborRates() {
 }
 
 let hasGenerated = false;
+let projectLocked = false;
+let lastGeneratedMode = null;
 
 function getInputs() {
   const powerW = clamp(Number(document.getElementById("powerW").value) || 0, 10, 15000);
@@ -1591,6 +1601,7 @@ function normalizeNumericInput(id, min, max, fallback) {
 function revealOutputs() {
   const outputArea = document.getElementById("outputArea");
   outputArea.classList.remove("output-hidden");
+  showExportPackage();
   renderSectionNav();
 }
 
@@ -1602,9 +1613,138 @@ const SECTION_NAV_GROUPS = {
   },
   multi: {
     setup: ["multiLocationSection", "laborRates"],
-    results: ["multiSummary", "multiLocationBreakdown"],
+    results: ["multiSummary", "multiLocationBreakdown", "multiGrandTotals"],
   },
 };
+
+function setGenerateButtonLabel() {
+  const button = document.getElementById("calculateProjectBtn");
+  if (!button) return;
+
+  button.textContent = currentMode === "multi"
+    ? "Generate Multi-Location Comparison"
+    : "Generate Comparison";
+}
+
+function updateExportActions() {
+  const exportPackage = document.getElementById("exportPackage");
+  if (!exportPackage) return;
+
+  const helperText = exportPackage.querySelector(".section-head p");
+  const pdfBtn = document.getElementById("exportPdfBtn");
+  const excelBtn = document.getElementById("exportExcelBtn");
+  const isMulti = lastGeneratedMode === "multi";
+
+  if (helperText) {
+    helperText.textContent = isMulti
+      ? "Download a formatted multi-location project report for customer delivery."
+      : "Download a formatted report for customer delivery.";
+  }
+
+  if (pdfBtn) {
+    pdfBtn.textContent = isMulti ? "Export Project PDF" : "Export PDF";
+  }
+
+  if (excelBtn) {
+    excelBtn.hidden = isMulti;
+    excelBtn.disabled = isMulti;
+  }
+}
+
+function showExportPackage() {
+  const exportPackage = document.getElementById("exportPackage");
+  if (!exportPackage) return;
+
+  updateExportActions();
+  exportPackage.hidden = false;
+}
+
+function hideExportPackage() {
+  const exportPackage = document.getElementById("exportPackage");
+  if (!exportPackage) return;
+
+  exportPackage.hidden = true;
+}
+
+function setProjectLocked(locked) {
+  projectLocked = locked;
+  document.body.classList.toggle("project-locked", locked);
+
+  const toolbar = document.getElementById("projectToolbar");
+  if (toolbar) {
+    toolbar.hidden = !locked;
+  }
+
+  ["analysisMode", "singleLocationSection", "multiLocationSection", "laborRates"].forEach((sectionId) => {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+
+    section.querySelectorAll("input, select, button").forEach((control) => {
+      control.disabled = locked;
+    });
+  });
+}
+
+function clearOutputContent() {
+  [
+    "summary",
+    "phaseBreakdown",
+    "ganttChart",
+    "comparisonRadar",
+    "costDriversTable",
+    "capacityAvailability",
+    "multiSummary",
+    "multiLocationBreakdown",
+    "multiGrandTotals",
+  ].forEach((id) => {
+    const element = document.getElementById(id);
+    if (element) element.innerHTML = "";
+  });
+}
+
+function resetLocationCards() {
+  locations = [];
+  locationIdCounter = 0;
+  const locationList = document.getElementById("locationList");
+  if (locationList) locationList.innerHTML = "";
+  addLocation();
+  addLocation();
+}
+
+function clearProject() {
+  hasGenerated = false;
+  lastGeneratedMode = null;
+  lastScenarios = null;
+  lastInputs = null;
+  lastMultiReport = null;
+
+  document.getElementById("powerW").value = 1000;
+  document.getElementById("distanceFt").value = 500;
+  document.getElementById("crewSize").value = 3;
+  document.getElementById("conduitCostPerFt").value = 0;
+  document.getElementById("installationType").value = "indoor";
+  document.getElementById("inBuildingType").value = "idf";
+  document.getElementById("outdoorType").value = "direct-bury";
+  document.getElementById("outdoorConduitSize").value = '2"';
+  document.getElementById("endDeviceType").value = "switch";
+  document.getElementById("multiCrewSize").value = 3;
+  document.getElementById("projectName").value = "";
+  document.getElementById("customerName").value = "";
+  document.getElementById("preparedBy").value = "";
+
+  resetLaborRates();
+  resetLocationCards();
+  clearOutputContent();
+  hideExportPackage();
+  document.getElementById("outputArea").classList.add("output-hidden");
+  document.getElementById("multiOutputArea").classList.add("output-hidden");
+  setMode("single");
+  handleInstallationTypeChange();
+  setProjectLocked(false);
+  updateExportActions();
+  renderSectionNav();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 
 function getSectionNavIds() {
   const outputVisible = !document.getElementById("outputArea").classList.contains("output-hidden");
@@ -1846,6 +1986,40 @@ function renderCapacityAvailability(scenarios) {
   container.innerHTML = `<div class="capacity-grid">${cards}</div>`;
 }
 
+function buildCapacityBarChartHtml(scenarios) {
+  const order = ["ac", "cl2", "cl4"];
+
+  const rows = order.map((arch) => {
+    const scenario = scenarios.find((item) => scenarioArchKey(item.name) === arch);
+    if (!scenario || !scenario.capacity) return "";
+
+    const capacity = scenario.capacity;
+    const chartTotalW = Math.max(capacity.totalW || capacity.usedW || 0, 1);
+    const usedW = clamp(capacity.usedW || 0, 0, chartTotalW);
+    const remainingW = Math.max(0, capacity.remainingW ?? (chartTotalW - usedW));
+    const usedPct = capacity.applicable === false ? 100 : clamp((usedW / chartTotalW) * 100, 0, 100);
+    const archLabel = scenarioShortLabel(scenario.name);
+    const secondary = capacity.applicable === false
+      ? scenarioWarningShortText(scenario)
+      : `${whole(remainingW)} W available of ${whole(chartTotalW)} W ${capacity.totalLabel || "provisioned"}`;
+
+    return `
+      <div class="capacity-bar-row${capacity.applicable === false ? " is-unavailable" : ""}" data-arch="${arch}">
+        <div class="capacity-bar-head">
+          <span class="capacity-bar-name">${archLabel}</span>
+          <span class="capacity-bar-value">${capacity.applicable === false ? "N/A" : `${whole(usedPct)}% used`}</span>
+        </div>
+        <div class="capacity-bar-track" role="img" aria-label="${capacity.ariaLabel || `${archLabel} uses ${whole(usedW)} watts out of ${whole(chartTotalW)} watts.`}">
+          <span class="capacity-bar-used" style="width:${usedPct}%"></span>
+        </div>
+        <p class="capacity-bar-meta">${secondary}</p>
+      </div>
+    `;
+  }).join("");
+
+  return `<div class="capacity-bar-chart">${rows}</div>`;
+}
+
 
 function runModel() {
   const labor = getLaborRates();
@@ -1866,7 +2040,8 @@ function generateOutput() {
   hasGenerated = true;
   revealOutputs();
   runModel();
-  document.getElementById("outputArea").scrollIntoView({ behavior: "smooth", block: "start" });
+  setProjectLocked(true);
+  document.getElementById("exportPackage").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function maybeRunModel() {
@@ -1895,10 +2070,27 @@ function handleInstallationTypeChange() {
 // ─── Export Functions ──────────────────────────────────────────────────────────
 let lastScenarios = null;
 let lastInputs = null;
+let lastMultiReport = null;
 
 function captureExportData(scenarios, inputs) {
   lastScenarios = scenarios;
   lastInputs = inputs;
+  lastMultiReport = null;
+  lastGeneratedMode = "single";
+  updateExportActions();
+}
+
+function captureMultiExportData(perLocation, archTotals, crewSize, aggregateScenarios) {
+  lastScenarios = null;
+  lastInputs = null;
+  lastGeneratedMode = "multi";
+  lastMultiReport = {
+    perLocation,
+    archTotals,
+    crewSize,
+    aggregateScenarios,
+  };
+  updateExportActions();
 }
 
 function getExportMeta() {
@@ -1926,217 +2118,425 @@ function getAssumptions() {
   ];
 }
 
-function exportPDF() {
-  if (!lastScenarios || !lastInputs) { alert("Generate a comparison first."); return; }
-  if (typeof window.jspdf === "undefined") { alert("PDF library not loaded. Check internet connection."); return; }
+const PDF_MARGIN = 12;
+const PDF_HEADER_COLOR = [15, 118, 110];
+const PDF_GRID_COLOR = [226, 232, 240];
 
+function createPdfDocument() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
-  const meta = getExportMeta();
-  const pageW = doc.internal.pageSize.getWidth();
-  const margin = 15;
-  let y = margin;
+  return new jsPDF({ orientation: "landscape", unit: "mm", format: "letter" });
+}
 
-  // ─── Title Page ───────────────────────────────────────
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.text(meta.projectName, pageW / 2, y + 25, { align: "center" });
-
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "normal");
-  doc.text("Power Architecture Cost & Time Analysis", pageW / 2, y + 35, { align: "center" });
-
-  y += 50;
-  doc.setFontSize(10);
-  if (meta.customerName) { doc.text(`Customer: ${meta.customerName}`, margin, y); y += 6; }
-  if (meta.preparedBy) { doc.text(`Prepared By: ${meta.preparedBy}`, margin, y); y += 6; }
-  doc.text(`Date: ${meta.date}`, margin, y); y += 6;
-  doc.text(`Tool Version: Power Delivery Comparison Tool v2.0`, margin, y); y += 12;
-
-  // ─── Project Parameters ───────────────────────────────
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text("Project Parameters", margin, y); y += 7;
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-
-  const params = [
-    ["Power Required", `${lastInputs.powerW} W`],
-    ["Distance", `${lastInputs.distanceFt} ft`],
-    ["Crew Size", `${lastInputs.crewSize} persons`],
-    ["Installation Type", lastInputs.installationType],
-    ["In-Building Routing", lastInputs.inBuildingType || "N/A"],
-    ["Outdoor Routing", lastInputs.outdoorType || "N/A"],
-    ["AC Conduit Size (outdoor)", lastInputs.outdoorConduitSize || "2\""],
-    ["End Device", lastInputs.endDeviceType],
-  ];
-
-  doc.autoTable({
-    startY: y,
-    head: [["Parameter", "Value"]],
-    body: params,
+function pdfBaseTableOptions() {
+  return {
     theme: "grid",
-    styles: { fontSize: 9, cellPadding: 2 },
-    headStyles: { fillColor: [15, 118, 110], textColor: 255 },
-    margin: { left: margin, right: margin },
-    tableWidth: 100,
-  });
-  y = doc.lastAutoTable.finalY + 8;
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+    styles: {
+      fontSize: 8,
+      cellPadding: 2,
+      lineColor: PDF_GRID_COLOR,
+      lineWidth: 0.1,
+      valign: "top",
+    },
+    headStyles: {
+      fillColor: PDF_HEADER_COLOR,
+      textColor: 255,
+      fontStyle: "bold",
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+  };
+}
 
-  // ─── Labor Rates ──────────────────────────────────────
-  const labor = getLaborRates();
-  const rateRows = [
+function pdfNextPage(doc) {
+  doc.addPage();
+  return PDF_MARGIN;
+}
+
+function pdfAddSectionTitle(doc, title, y) {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  if (y > pageHeight - 24) {
+    y = pdfNextPage(doc);
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(31, 41, 55);
+  doc.text(title, PDF_MARGIN, y);
+  return y + 6;
+}
+
+function pdfAddTable(doc, title, head, body, y, options = {}) {
+  const titleY = pdfAddSectionTitle(doc, title, y);
+  doc.autoTable({
+    ...pdfBaseTableOptions(),
+    startY: titleY,
+    head: [head],
+    body,
+    ...options,
+  });
+  return doc.lastAutoTable.finalY + 6;
+}
+
+function pdfAddCoverPage(doc, meta, subtitle, summaryRows = []) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  doc.setFillColor(...PDF_HEADER_COLOR);
+  doc.rect(0, 0, pageWidth, 26, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(24);
+  doc.setTextColor(31, 41, 55);
+  doc.text(meta.projectName, pageWidth / 2, 44, { align: "center" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(95, 102, 116);
+  doc.text(subtitle, pageWidth / 2, 52, { align: "center" });
+
+  let y = 68;
+  const coverDetails = [
+    meta.customerName ? `Customer: ${meta.customerName}` : null,
+    meta.preparedBy ? `Prepared By: ${meta.preparedBy}` : null,
+    `Date: ${meta.date}`,
+    "Tool: Power Delivery Comparison Tool",
+  ].filter(Boolean);
+
+  doc.setFontSize(10.5);
+  coverDetails.forEach((line) => {
+    doc.text(line, pageWidth / 2, y, { align: "center" });
+    y += 6;
+  });
+
+  if (summaryRows.length) {
+    doc.autoTable({
+      ...pdfBaseTableOptions(),
+      startY: y + 6,
+      head: [["Project Snapshot", "Value"]],
+      body: summaryRows,
+      tableWidth: 150,
+      margin: { left: (pageWidth - 150) / 2, right: (pageWidth - 150) / 2 },
+    });
+  }
+
+  doc.setFontSize(10);
+  doc.setTextColor(95, 102, 116);
+  doc.text("Customer-ready comparison report generated from the current project inputs.", pageWidth / 2, pageHeight - 20, { align: "center" });
+
+  return pdfNextPage(doc);
+}
+
+function pdfStampPages(doc, meta) {
+  const pageCount = doc.getNumberOfPages();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  for (let page = 1; page <= pageCount; page += 1) {
+    doc.setPage(page);
+    doc.setDrawColor(...PDF_GRID_COLOR);
+    doc.line(PDF_MARGIN, 10, pageWidth - PDF_MARGIN, 10);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(95, 102, 116);
+    doc.text(meta.projectName, PDF_MARGIN, 7.5);
+    doc.text(`Page ${page} of ${pageCount}`, pageWidth - PDF_MARGIN, pageHeight - 5, { align: "right" });
+  }
+}
+
+function buildLaborRateRows(labor) {
+  return [
     ["Electrician", `$${labor.electrician.toFixed(2)}/hr`],
     ["Low Voltage Technician", `$${labor.lvTech.toFixed(2)}/hr`],
     ["Design / PM", `$${labor.design.toFixed(2)}/hr`],
     ["Electrical Designer", `$${labor.designer.toFixed(2)}/hr`],
     ["Construction Laborer", `$${labor.laborer.toFixed(2)}/hr`],
   ];
+}
 
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text("Labor Rates", margin, y); y += 7;
+function buildSingleParameterRows(inputs) {
+  const indoorRouting = inputs.installationType === "outdoor" ? "N/A" : inputs.inBuildingType || "N/A";
+  const outdoorRouting = inputs.installationType === "indoor" ? "N/A" : inputs.outdoorType || "N/A";
+  const outdoorConduit = inputs.installationType === "indoor" ? "N/A" : inputs.outdoorConduitSize || '2"';
 
-  doc.autoTable({
-    startY: y,
-    head: [["Role", "Rate"]],
-    body: rateRows,
-    theme: "grid",
-    styles: { fontSize: 9, cellPadding: 2 },
-    headStyles: { fillColor: [15, 118, 110], textColor: 255 },
-    margin: { left: margin, right: margin },
-    tableWidth: 100,
+  return [
+    ["Mode", "Single Location"],
+    ["Power Required", `${inputs.powerW} W`],
+    ["Distance", `${inputs.distanceFt} ft`],
+    ["Crew Size", `${inputs.crewSize} persons`],
+    ["Installation Type", inputs.installationType],
+    ["In-Building Routing", indoorRouting],
+    ["Outdoor Routing", outdoorRouting],
+    ["AC Conduit Size (outdoor)", outdoorConduit],
+    ["End Device", inputs.endDeviceType],
+    ["Conduit Override", inputs.conduitCostOverride > 0 ? `${money(inputs.conduitCostOverride)}/ft` : "Auto by size"],
+  ];
+}
+
+function buildScenarioSummaryRows(scenarios) {
+  return scenarios.map((scenario) => [
+    scenarioShortLabel(scenario.name),
+    formatScenarioCurrency(scenario),
+    formatScenarioCurrency(scenario, scenario.materialTotal),
+    formatScenarioCurrency(scenario, scenario.laborTotal),
+    formatScenarioNumber(scenario, scenario.totalHours, 1, " hrs"),
+    formatScenarioNumber(scenario, scenario.totalDays, 1, " days"),
+    isScenarioApplicable(scenario) ? scenario.fitText : scenarioWarningText(scenario),
+  ]);
+}
+
+function buildCapacityRows(scenarios) {
+  return scenarios.map((scenario) => {
+    const capacity = scenario.capacity;
+    if (!capacity || capacity.applicable === false) {
+      return [scenarioShortLabel(scenario.name), "N/A", "N/A", "N/A", scenarioWarningText(scenario)];
+    }
+
+    return [
+      scenarioShortLabel(scenario.name),
+      `${whole(capacity.usedW || 0)} W`,
+      `${whole(capacity.remainingW || 0)} W`,
+      `${whole(capacity.totalW || 0)} W`,
+      `${capacity.totalLabel || "Provisioned"} | ${capacity.basis}`,
+    ];
   });
-  y = doc.lastAutoTable.finalY + 8;
+}
 
-  // ─── Assumptions ──────────────────────────────────────
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text("Model Assumptions", margin, y); y += 7;
-  doc.setFontSize(8.5);
-  doc.setFont("helvetica", "normal");
+function buildPhaseComparisonTable(scenarios) {
+  const phaseOrder = [...new Set(scenarios.flatMap((scenario) => scenario.rows.map((row) => row.phase)))];
+  return {
+    head: ["Phase", ...scenarios.map((scenario) => scenarioShortLabel(scenario.name))],
+    body: phaseOrder.map((phase) => {
+      const row = [phase];
+      scenarios.forEach((scenario) => {
+        const phaseCost = scenario.rows
+          .filter((item) => item.phase === phase)
+          .reduce((sum, item) => sum + item.lineTotal, 0);
+        row.push(isScenarioApplicable(scenario) ? money(phaseCost) : "N/A");
+      });
+      return row;
+    }),
+  };
+}
 
-  getAssumptions().forEach((a, i) => {
-    if (y > 250) { doc.addPage(); y = margin; }
-    doc.text(`${i + 1}. ${a}`, margin + 2, y);
-    y += 5;
+function buildArchitectureSnapshotRows(scenario) {
+  return [
+    ["Architecture", scenarioShortLabel(scenario.name)],
+    ["Total Cost", formatScenarioCurrency(scenario)],
+    ["Material Cost", formatScenarioCurrency(scenario, scenario.materialTotal)],
+    ["Labor Cost", formatScenarioCurrency(scenario, scenario.laborTotal)],
+    ["Labor Hours", formatScenarioNumber(scenario, scenario.totalHours, 1, " hrs")],
+    ["Duration", formatScenarioNumber(scenario, scenario.totalDays, 1, " days")],
+    ["Status", isScenarioApplicable(scenario) ? scenario.fitText : scenarioWarningText(scenario)],
+  ];
+}
+
+function buildArchitectureLineRows(scenario) {
+  if (!scenario.rows.length) {
+    return [["Status", scenarioWarningText(scenario), "", "", "", "", "", ""]];
+  }
+
+  return scenario.rows.map((row) => [
+    row.phase.replace(/^\d+\)\s*/, ""),
+    row.activity,
+    `${row.quantity.toFixed(1)} ${row.unit}`,
+    row.laborRole,
+    `${row.laborHours.toFixed(1)} hrs`,
+    money(row.materialCost),
+    money(row.laborCost),
+    money(row.lineTotal),
+  ]);
+}
+
+function buildMultiProjectRows(report) {
+  const totalPower = report.perLocation.reduce((sum, location) => sum + location.loc.powerW, 0);
+  return [
+    ["Mode", "Multi-Location"],
+    ["Locations", `${report.perLocation.length}`],
+    ["Total Power", `${whole(totalPower)} W`],
+    ["Shared Crew Size", `${report.crewSize} persons`],
+  ];
+}
+
+function buildMultiLocationInputRows(perLocation) {
+  return perLocation.map(({ loc }) => [
+    loc.name,
+    `${loc.powerW} W`,
+    `${loc.distanceFt} ft`,
+    loc.installationType,
+    loc.installationType === "outdoor" ? "N/A" : loc.inBuildingType,
+    loc.installationType === "indoor" ? "N/A" : loc.outdoorType,
+    loc.installationType === "indoor" ? "N/A" : loc.outdoorConduitSize,
+    loc.endDeviceType,
+  ]);
+}
+
+function buildLocationArchitectureRows(scenarios) {
+  return sortScenariosByCost(scenarios).map((scenario) => [
+    scenarioShortLabel(scenario.name),
+    formatScenarioCurrency(scenario),
+    formatScenarioNumber(scenario, scenario.totalDays, 1, " days"),
+    isScenarioApplicable(scenario) ? scenario.fitText : scenarioWarningText(scenario),
+  ]);
+}
+
+function buildLocationLineRows(scenarios) {
+  const rows = [];
+  sortScenariosByCost(scenarios).forEach((scenario) => {
+    if (!scenario.rows.length) {
+      rows.push([scenarioShortLabel(scenario.name), "Status", scenarioWarningText(scenario), "", "", "", "", "", ""]);
+      return;
+    }
+
+    scenario.rows.forEach((row) => {
+      rows.push([
+        scenarioShortLabel(scenario.name),
+        row.phase.replace(/^\d+\)\s*/, ""),
+        row.activity,
+        `${row.quantity.toFixed(1)} ${row.unit}`,
+        row.laborRole,
+        `${row.laborHours.toFixed(1)} hrs`,
+        money(row.materialCost),
+        money(row.laborCost),
+        money(row.lineTotal),
+      ]);
+    });
   });
-  y += 6;
+  return rows;
+}
 
-  // ─── Executive Summary ────────────────────────────────
-  if (y > 220) { doc.addPage(); y = margin; }
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.text("Executive Summary", margin, y); y += 8;
-
-  const summaryRows = lastScenarios.map((s) => [
-    s.name,
-    formatScenarioCurrency(s, s.totalCost),
-    formatScenarioCurrency(s, s.materialTotal),
-    formatScenarioCurrency(s, s.laborTotal),
-    formatScenarioNumber(s, s.totalHours, 1, " hrs"),
-    formatScenarioNumber(s, s.totalDays, 1, " days"),
-    s.fitText,
+function exportSinglePDF(meta) {
+  const doc = createPdfDocument();
+  const labor = getLaborRates();
+  let y = pdfAddCoverPage(doc, meta, "Power Architecture Cost and Time Comparison Report", [
+    ["Mode", "Single Location"],
+    ["Power", `${lastInputs.powerW} W`],
+    ["Distance", `${lastInputs.distanceFt} ft`],
+    ["Crew Size", `${lastInputs.crewSize} persons`],
   ]);
 
-  doc.autoTable({
-    startY: y,
-    head: [["Architecture", "Total Cost", "Materials", "Labor", "Hours", "Duration", "Fit Assessment"]],
-    body: summaryRows,
-    theme: "grid",
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [15, 118, 110], textColor: 255 },
-    margin: { left: margin, right: margin },
+  y = pdfAddTable(doc, "Project Parameters", ["Parameter", "Value"], buildSingleParameterRows(lastInputs), y, { tableWidth: 120 });
+  y = pdfAddTable(doc, "Labor Rates", ["Role", "Rate"], buildLaborRateRows(labor), y, { tableWidth: 115 });
+  y = pdfAddTable(doc, "Model Assumptions", ["Assumption"], getAssumptions().map((item, index) => [`${index + 1}. ${item}`]), y, {
+    styles: { fontSize: 7.6, cellPadding: 2, lineColor: PDF_GRID_COLOR, lineWidth: 0.1, valign: "top" },
   });
-  y = doc.lastAutoTable.finalY + 10;
+  y = pdfAddTable(doc, "Executive Summary", ["Architecture", "Total Cost", "Materials", "Labor", "Hours", "Duration", "Status"], buildScenarioSummaryRows(lastScenarios), y);
+  y = pdfAddTable(doc, "Future Capacity Summary", ["Architecture", "Used", "Available", "Provisioned", "Basis / Status"], buildCapacityRows(lastScenarios), y, {
+    styles: { fontSize: 7.6, cellPadding: 2, lineColor: PDF_GRID_COLOR, lineWidth: 0.1, valign: "top" },
+  });
 
-  // ─── Detailed Line Items per Architecture ─────────────
+  const phaseComparison = buildPhaseComparisonTable(lastScenarios);
+  y = pdfAddTable(doc, "Phase Cost Comparison", phaseComparison.head, phaseComparison.body, y, {
+    styles: { fontSize: 7.4, cellPadding: 1.8, lineColor: PDF_GRID_COLOR, lineWidth: 0.1, valign: "top" },
+  });
+
   lastScenarios.forEach((scenario) => {
-    doc.addPage();
-    y = margin;
-    doc.setFontSize(13);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${scenario.name} — Detailed Line Items`, margin, y); y += 4;
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(
-      isScenarioApplicable(scenario)
-        ? `Total: ${formatScenarioCurrency(scenario)} | ${formatScenarioNumber(scenario, scenario.totalDays, 1, " days")} | ${formatScenarioNumber(scenario, scenario.totalHours, 1, " labor hours")}`
-        : `Status: Not applicable | ${scenarioWarningText(scenario)}`,
-      margin, y + 4
-    );
-    y += 10;
-
-    const lineRows = scenario.rows.length ? scenario.rows.map((r) => [
-      r.phase.replace(/^\d+\)\s*/, ""),
-      r.activity,
-      `${r.quantity.toFixed(1)} ${r.unit}`,
-      r.laborRole,
-      `${r.laborHours.toFixed(1)} hrs`,
-      `$${r.materialCost.toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
-      `$${r.laborCost.toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
-      `$${r.lineTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
-    ]) : [["Status", scenarioWarningText(scenario), "", "", "", "", "", ""]];
-
-    doc.autoTable({
-      startY: y,
-      head: [["Phase", "Activity", "Qty", "Role", "Hours", "Material $", "Labor $", "Total $"]],
-      body: lineRows,
-      theme: "striped",
-      styles: { fontSize: 7, cellPadding: 1.5 },
-      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontSize: 7.5 },
+    let pageY = pdfNextPage(doc);
+    pageY = pdfAddTable(doc, `${scenario.name} Snapshot`, ["Metric", "Value"], buildArchitectureSnapshotRows(scenario), pageY, { tableWidth: 120 });
+    pdfAddTable(doc, `${scenario.name} Detailed Line Items`, ["Phase", "Activity", "Qty", "Role", "Hours", "Material $", "Labor $", "Total $"], buildArchitectureLineRows(scenario), pageY, {
+      styles: { fontSize: 7.1, cellPadding: 1.4, lineColor: PDF_GRID_COLOR, lineWidth: 0.1, valign: "top" },
       columnStyles: {
-        0: { cellWidth: 28 },
-        1: { cellWidth: 38 },
-        2: { cellWidth: 18 },
-        3: { cellWidth: 30 },
-        4: { cellWidth: 16 },
-        5: { cellWidth: 18 },
-        6: { cellWidth: 18 },
-        7: { cellWidth: 18 },
+        0: { cellWidth: 32 },
+        1: { cellWidth: 74 },
+        2: { cellWidth: 23 },
+        3: { cellWidth: 34 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 23 },
+        6: { cellWidth: 23 },
+        7: { cellWidth: 23 },
       },
-      margin: { left: margin, right: margin },
-      didDrawPage: () => { y = margin; },
     });
   });
 
-  // ─── Phase Cost Comparison Table ──────────────────────
-  doc.addPage();
-  y = margin;
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.text("Phase Cost Comparison", margin, y); y += 8;
+  pdfStampPages(doc, meta);
+  doc.save(meta.projectName.replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_") + "_Report.pdf");
+}
 
-  const phaseOrder = [...new Set(lastScenarios.flatMap((s) => s.rows.map((r) => r.phase)))];
-  const phaseCompRows = phaseOrder.map((phase) => {
-    const row = [phase];
-    lastScenarios.forEach((s) => {
-      const phaseCost = s.rows.filter((r) => r.phase === phase).reduce((sum, r) => sum + r.lineTotal, 0);
-      row.push(isScenarioApplicable(s) ? money(phaseCost) : "N/A");
+function exportMultiPDF(meta) {
+  const report = lastMultiReport;
+  const doc = createPdfDocument();
+  const labor = getLaborRates();
+  let y = pdfAddCoverPage(doc, meta, "Multi-Location Power Architecture Comparison Report", [
+    ["Mode", "Multi-Location"],
+    ["Locations", `${report.perLocation.length}`],
+    ["Total Power", `${whole(report.perLocation.reduce((sum, location) => sum + location.loc.powerW, 0))} W`],
+    ["Shared Crew Size", `${report.crewSize} persons`],
+  ]);
+
+  y = pdfAddTable(doc, "Project Overview", ["Parameter", "Value"], buildMultiProjectRows(report), y, { tableWidth: 120 });
+  y = pdfAddTable(doc, "Location Inputs", ["Location", "Power", "Distance", "Installation", "Indoor Routing", "Outdoor Routing", "Conduit", "End Device"], buildMultiLocationInputRows(report.perLocation), y, {
+    styles: { fontSize: 7.4, cellPadding: 1.8, lineColor: PDF_GRID_COLOR, lineWidth: 0.1, valign: "top" },
+  });
+  y = pdfAddTable(doc, "Labor Rates", ["Role", "Rate"], buildLaborRateRows(labor), y, { tableWidth: 115 });
+  y = pdfAddTable(doc, "Model Assumptions", ["Assumption"], getAssumptions().map((item, index) => [`${index + 1}. ${item}`]), y, {
+    styles: { fontSize: 7.6, cellPadding: 2, lineColor: PDF_GRID_COLOR, lineWidth: 0.1, valign: "top" },
+  });
+  y = pdfAddTable(doc, "Executive Summary", ["Architecture", "Total Cost", "Materials", "Labor", "Hours", "Duration", "Status"], buildScenarioSummaryRows(report.aggregateScenarios), y);
+
+  const grandTotals = buildPhaseComparisonTable(report.aggregateScenarios);
+  y = pdfAddTable(doc, "Project Grand Totals by Phase", grandTotals.head, grandTotals.body, y, {
+    styles: { fontSize: 7.4, cellPadding: 1.8, lineColor: PDF_GRID_COLOR, lineWidth: 0.1, valign: "top" },
+  });
+
+  report.perLocation.forEach(({ loc, scenarios }) => {
+    let pageY = pdfNextPage(doc);
+    pageY = pdfAddTable(doc, `${loc.name} Project Inputs`, ["Parameter", "Value"], [
+      ["Power", `${loc.powerW} W`],
+      ["Distance", `${loc.distanceFt} ft`],
+      ["Installation Type", loc.installationType],
+      ["In-Building Routing", loc.installationType === "outdoor" ? "N/A" : loc.inBuildingType],
+      ["Outdoor Routing", loc.installationType === "indoor" ? "N/A" : loc.outdoorType],
+      ["AC Conduit Size (outdoor)", loc.installationType === "indoor" ? "N/A" : loc.outdoorConduitSize],
+      ["End Device", loc.endDeviceType],
+    ], pageY, { tableWidth: 120 });
+    pageY = pdfAddTable(doc, `${loc.name} Architecture Summary`, ["Architecture", "Total Cost", "Duration", "Status"], buildLocationArchitectureRows(scenarios), pageY, {
+      tableWidth: 170,
     });
-    return row;
+    pageY = pdfAddTable(doc, `${loc.name} Capacity Summary`, ["Architecture", "Used", "Available", "Provisioned", "Basis / Status"], buildCapacityRows(sortScenariosByCost(scenarios)), pageY, {
+      styles: { fontSize: 7.6, cellPadding: 2, lineColor: PDF_GRID_COLOR, lineWidth: 0.1, valign: "top" },
+    });
+    pdfAddTable(doc, `${loc.name} Line Item Detail`, ["Architecture", "Phase", "Activity", "Qty", "Role", "Hours", "Material $", "Labor $", "Total $"], buildLocationLineRows(scenarios), pageY, {
+      styles: { fontSize: 6.9, cellPadding: 1.2, lineColor: PDF_GRID_COLOR, lineWidth: 0.1, valign: "top" },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        1: { cellWidth: 28 },
+        2: { cellWidth: 58 },
+        3: { cellWidth: 19 },
+        4: { cellWidth: 28 },
+        5: { cellWidth: 18 },
+        6: { cellWidth: 21 },
+        7: { cellWidth: 21 },
+        8: { cellWidth: 21 },
+      },
+    });
   });
 
-  const phaseCompHead = ["Phase", ...lastScenarios.map((s) => s.name)];
+  pdfStampPages(doc, meta);
+  doc.save(meta.projectName.replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_") + "_Report.pdf");
+}
 
-  doc.autoTable({
-    startY: y,
-    head: [phaseCompHead],
-    body: phaseCompRows,
-    theme: "grid",
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [15, 118, 110], textColor: 255 },
-    margin: { left: margin, right: margin },
-  });
+function exportPDF() {
+  if (lastGeneratedMode === "multi") {
+    if (!lastMultiReport) { alert("Generate a multi-location comparison first."); return; }
+  } else if (!lastScenarios || !lastInputs) {
+    alert("Generate a comparison first.");
+    return;
+  }
 
-  // Save
-  const filename = meta.projectName.replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_") + "_Report.pdf";
-  doc.save(filename);
+  if (typeof window.jspdf === "undefined") { alert("PDF library not loaded. Verify the local vendor files are available."); return; }
+
+  const meta = getExportMeta();
+  if (lastGeneratedMode === "multi") exportMultiPDF(meta);
+  else exportSinglePDF(meta);
 }
 
 function exportExcel() {
+  if (lastGeneratedMode === "multi") {
+    alert("Excel export is currently available for single-location reports only.");
+    return;
+  }
   if (!lastScenarios || !lastInputs) { alert("Generate a comparison first."); return; }
-  if (typeof XLSX === "undefined") { alert("Excel library not loaded. Check internet connection."); return; }
+  if (typeof XLSX === "undefined") { alert("Excel library not loaded. Verify the local vendor files are available."); return; }
 
   const meta = getExportMeta();
   const wb = XLSX.utils.book_new();
@@ -2297,6 +2697,7 @@ function setMode(mode) {
   document.getElementById("multiLocationSection").style.display = mode === "multi" ? "grid" : "none";
   document.getElementById("outputArea").classList.add("output-hidden");
   document.getElementById("multiOutputArea").classList.add("output-hidden");
+  setGenerateButtonLabel();
   renderSectionNav();
 }
 
@@ -2355,7 +2756,7 @@ function createLocationCard(loc) {
           <option value="mixed"${loc.installationType === "mixed" ? " selected" : ""}>Mixed</option>
         </select>
       </label>
-      <label>
+      <label class="loc-indoor-group">
         In-Building Routing
         <select class="loc-indoor-routing">
           <option value="idf"${loc.inBuildingType === "idf" ? " selected" : ""}>Open Riser</option>
@@ -2365,7 +2766,7 @@ function createLocationCard(loc) {
           <option value="surface"${loc.inBuildingType === "surface" ? " selected" : ""}>Surface Mount</option>
         </select>
       </label>
-      <label>
+      <label class="loc-outdoor-group">
         Outdoor Routing
         <select class="loc-outdoor-routing">
           <option value="direct-bury"${loc.outdoorType === "direct-bury" ? " selected" : ""}>Direct Bury</option>
@@ -2375,7 +2776,7 @@ function createLocationCard(loc) {
           <option value="underground-duct"${loc.outdoorType === "underground-duct" ? " selected" : ""}>Underground Duct</option>
         </select>
       </label>
-      <label>
+      <label class="loc-outdoor-group loc-outdoor-conduit-group">
         AC Conduit Size (outdoor)
         <select class="loc-outdoor-conduit">
           <option value='3/4"'${loc.outdoorConduitSize === '3/4"' ? " selected" : ""}>3/4"</option>
@@ -2401,7 +2802,70 @@ function createLocationCard(loc) {
     card.remove();
   });
 
+  card.querySelector(".loc-install-type").addEventListener("change", () => {
+    syncLocationCardRoutingFields(card);
+  });
+
+  syncLocationCardRoutingFields(card);
+
   return card;
+}
+
+function syncLocationCardRoutingFields(card) {
+  const installType = card.querySelector(".loc-install-type").value;
+  const indoorGroup = card.querySelector(".loc-indoor-group");
+  const outdoorGroups = card.querySelectorAll(".loc-outdoor-group");
+
+  if (indoorGroup) {
+    indoorGroup.style.display = installType === "outdoor" ? "none" : "grid";
+  }
+
+  outdoorGroups.forEach((group) => {
+    group.style.display = installType === "indoor" ? "none" : "grid";
+  });
+}
+
+function buildAggregateScenarios(perLocation, crewSize) {
+  const archNames = ["Class 1 AC", "Class 2 DC", "Class 4 Fault Managed Power"];
+
+  return sortScenariosByCost(archNames.map((archName) => {
+    const locationScenarios = perLocation
+      .map(({ scenarios }) => scenarios.find((scenario) => scenario.name === archName))
+      .filter(Boolean);
+    const unavailableScenario = locationScenarios.find((scenario) => !isScenarioApplicable(scenario));
+
+    if (unavailableScenario) {
+      return {
+        name: archName,
+        rows: [],
+        totalCost: 0,
+        totalHours: 0,
+        totalDays: 0,
+        materialTotal: 0,
+        laborTotal: 0,
+        crewSize,
+        fit: unavailableScenario.fit || "warn",
+        fitText: unavailableScenario.fitText || "Not applicable",
+        isApplicable: false,
+        unavailabilityReason: scenarioWarningText(unavailableScenario),
+        unavailabilityShortText: scenarioWarningShortText(unavailableScenario),
+      };
+    }
+
+    const rows = locationScenarios.flatMap((scenario) => scenario.rows.map((row) => ({ ...row })));
+    return {
+      name: archName,
+      rows,
+      totalCost: locationScenarios.reduce((sum, scenario) => sum + scenario.totalCost, 0),
+      totalHours: locationScenarios.reduce((sum, scenario) => sum + scenario.totalHours, 0),
+      totalDays: locationScenarios.reduce((sum, scenario) => sum + scenario.totalDays, 0),
+      materialTotal: locationScenarios.reduce((sum, scenario) => sum + scenario.materialTotal, 0),
+      laborTotal: locationScenarios.reduce((sum, scenario) => sum + scenario.laborTotal, 0),
+      crewSize,
+      fit: "good",
+      fitText: "Project total",
+    };
+  }));
 }
 
 function addLocation() {
@@ -2478,12 +2942,18 @@ function runMultiModel() {
     });
   });
 
+  const aggregateScenarios = buildAggregateScenarios(perLocation, crewSize);
   renderMultiSummary(perLocation, archTotals, crewSize);
   renderMultiBreakdown(perLocation);
+  renderMultiGrandTotals(aggregateScenarios);
+  captureMultiExportData(perLocation, archTotals, crewSize, aggregateScenarios);
 
+  hasGenerated = true;
   document.getElementById("multiOutputArea").classList.remove("output-hidden");
+  showExportPackage();
   renderSectionNav();
-  document.getElementById("multiOutputArea").scrollIntoView({ behavior: "smooth", block: "start" });
+  setProjectLocked(true);
+  document.getElementById("exportPackage").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderMultiSummary(perLocation, archTotals, crewSize) {
@@ -2589,6 +3059,8 @@ function renderMultiBreakdown(perLocation) {
     }).join("");
 
     const ganttHtml = renderMultiGantt(scenarios);
+    const lineItemHtml = buildPhaseSectionsHtml(sorted);
+    const capacityHtml = buildCapacityBarChartHtml(sorted);
 
     return `
       <div class="loc-breakdown-card">
@@ -2599,6 +3071,20 @@ function renderMultiBreakdown(perLocation) {
           <span>${loc.installationType}</span>
         </div>
         <div class="loc-arch-pills">${pills}</div>
+        <div class="loc-section-block loc-line-items">
+          <div class="section-head section-head-compact">
+            <h5>Line Item Breakout</h5>
+            <p>Phase-by-phase cost breakout for this location.</p>
+          </div>
+          ${lineItemHtml}
+        </div>
+        <div class="loc-section-block loc-capacity-chart">
+          <div class="section-head section-head-compact">
+            <h5>Future Capacity Bars</h5>
+            <p>Remaining capacity view by architecture for this location.</p>
+          </div>
+          ${capacityHtml}
+        </div>
         <div class="loc-gantt">${ganttHtml}</div>
       </div>
     `;
@@ -2613,15 +3099,30 @@ function renderMultiBreakdown(perLocation) {
   `;
 }
 
+function renderMultiGrandTotals(aggregateScenarios) {
+  const container = document.getElementById("multiGrandTotals");
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="section-head">
+      <h2>Project Grand Totals by Phase</h2>
+      <p>Aggregated line-item totals across all locations for each power architecture.</p>
+    </div>
+    ${buildPhaseSectionsHtml(aggregateScenarios)}
+  `;
+}
+
 // Initialize with 2 default locations
 addLocation();
 addLocation();
 
 document.getElementById("addLocationBtn").addEventListener("click", addLocation);
-document.getElementById("calculateMultiBtn").addEventListener("click", runMultiModel);
 
 // ─── Single-Location Event Listeners ──────────────────────────────────────────
-document.getElementById("calculateBtn").addEventListener("click", generateOutput);
+document.getElementById("calculateProjectBtn").addEventListener("click", () => {
+  if (currentMode === "multi") runMultiModel();
+  else generateOutput();
+});
 document.getElementById("resetRatesBtn").addEventListener("click", () => {
   resetLaborRates();
   maybeRunModel();
@@ -2647,7 +3148,9 @@ normalizeNumericInput("rateDesigner", 10, 250, defaultLabor.designer);
 normalizeNumericInput("rateLaborer", 10, 250, defaultLabor.laborer);
 
 // ─── Export Event Listeners ───────────────────────────────────────────────────
+document.getElementById("clearProjectBtn").addEventListener("click", clearProject);
 document.getElementById("exportPdfBtn").addEventListener("click", exportPDF);
 document.getElementById("exportExcelBtn").addEventListener("click", exportExcel);
 
+setGenerateButtonLabel();
 renderSectionNav();

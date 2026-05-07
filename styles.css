@@ -166,6 +166,35 @@ h2 {
   color: var(--muted);
 }
 
+.project-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.85rem;
+  position: sticky;
+  top: 0.75rem;
+  z-index: 4;
+}
+
+.project-toolbar-kicker,
+.project-toolbar-text {
+  margin: 0;
+}
+
+.project-toolbar-kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.project-toolbar-text {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -280,7 +309,7 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-#calculateBtn {
+#calculateProjectBtn {
   width: 100%;
   background: linear-gradient(120deg, #0f766e, #0e7490);
   color: #fff;
@@ -289,9 +318,26 @@ button:focus-visible {
   letter-spacing: 0.02em;
 }
 
-#calculateBtn:hover {
+#calculateProjectBtn:hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 22px rgba(15, 118, 110, 0.38);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
+}
+
+input:disabled,
+select:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.project-generate-row {
+  margin-top: 0.35rem;
 }
 
 #resetRatesBtn {
@@ -1018,16 +1064,6 @@ th {
   background: rgba(15, 118, 110, 0.08);
 }
 
-.location-actions #calculateMultiBtn {
-  flex: 1;
-  min-width: 200px;
-  background: linear-gradient(120deg, #0f766e, #0e7490);
-  color: #fff;
-  font-size: 1rem;
-  padding: 0.9rem 1rem;
-  letter-spacing: 0.02em;
-}
-
 /* Multi-location output */
 .multi-agg-grid {
   display: grid;
@@ -1095,6 +1131,121 @@ th {
 
 .loc-gantt {
   margin-top: 0.75rem;
+}
+
+.loc-section-block {
+  margin-top: 0.9rem;
+}
+
+.section-head-compact {
+  margin-bottom: 0.45rem;
+}
+
+.section-head-compact h5,
+.section-head-compact p {
+  margin: 0;
+}
+
+.section-head-compact h5 {
+  font-family: "Sora", sans-serif;
+  font-size: 0.88rem;
+}
+
+.section-head-compact p {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.loc-line-items .phase-grid {
+  gap: 0.6rem;
+}
+
+.loc-line-items .phase-card {
+  padding: 0.65rem;
+}
+
+.loc-line-items .phase-card h3 {
+  font-size: 0.92rem;
+}
+
+.loc-line-items .phase-options {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.loc-line-items .option-pill {
+  padding: 0.45rem;
+}
+
+.loc-line-items .task-table {
+  font-size: 0.76rem;
+}
+
+.capacity-bar-chart {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.capacity-bar-row {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.capacity-bar-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: baseline;
+}
+
+.capacity-bar-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.capacity-bar-value {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.capacity-bar-track {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(19, 31, 49, 0.12);
+  overflow: hidden;
+}
+
+.capacity-bar-used {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+}
+
+.capacity-bar-row[data-arch="ac"] .capacity-bar-used {
+  background: var(--arch-ac);
+}
+
+.capacity-bar-row[data-arch="cl2"] .capacity-bar-used {
+  background: var(--arch-cl2);
+}
+
+.capacity-bar-row[data-arch="cl4"] .capacity-bar-used {
+  background: var(--arch-cl4);
+}
+
+.capacity-bar-row.is-unavailable .capacity-bar-track {
+  background: rgba(95, 102, 116, 0.12);
+}
+
+.capacity-bar-row.is-unavailable .capacity-bar-used {
+  background: rgba(95, 102, 116, 0.26);
+}
+
+.capacity-bar-meta {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--muted);
 }
 .gantt-mini-wrap .gantt-scenario.gantt-mini {
   margin-bottom: 0.25rem;
@@ -1275,6 +1426,10 @@ th {
 @media (max-width: 700px) {
   .toggle-group {
     flex-direction: column;
+  }
+  .project-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
   }
   .loc-arch-pills {
     grid-template-columns: 1fr;
