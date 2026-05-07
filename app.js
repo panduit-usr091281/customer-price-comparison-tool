@@ -2647,274 +2647,300 @@ function exportExcel() {
   const meta = getExportMeta();
   const wb = XLSX.utils.book_new();
 
-  // ─── Helper: style a range as a table header ───────────
-  function applyHeaderStyle(ws, ref) {
-    const range = XLSX.utils.decode_range(ref);
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const addr = XLSX.utils.encode_cell({ r: range.s.r, c });
-      if (!ws[addr]) ws[addr] = { v: "", t: "s" };
-      ws[addr].s = {
-        font: { bold: true, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "0F766E" } },
-        alignment: { horizontal: "center", vertical: "center" },
-        border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } },
-      };
-    }
+  // ─── Styling Helpers ──────────────────────────────────────
+  const XL_TEAL      = "0F766E";
+  const XL_DARK      = "1F2937";
+  const XL_MUTED     = "5F6674";
+  const XL_BORDER    = "CBD5E1";
+  const XL_ALT_ROW   = "F8FAFB";
+  const XL_CREAM     = "F4F0E8";
+  const XL_BLUE      = "1D4ED8";
+  const XL_PURPLE    = "7C3AED";
+
+  function sTitle(v) {
+    return { v, t: "s", s: { font: { bold: true, sz: 14, color: { rgb: XL_DARK } }, fill: { fgColor: { rgb: XL_CREAM } }, alignment: { horizontal: "left" } } };
+  }
+  function sSubheading(v) {
+    return { v, t: "s", s: { font: { bold: true, sz: 11, color: { rgb: XL_TEAL } }, border: { bottom: { style: "medium", color: { rgb: XL_TEAL } } } } };
+  }
+  function sHeader(v) {
+    return { v, t: "s", s: { font: { bold: true, sz: 9, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: XL_TEAL } }, alignment: { horizontal: "center", vertical: "center", wrapText: true }, border: { bottom: { style: "thin", color: { rgb: XL_BORDER } } } } };
+  }
+  function sHeaderAccent(v, color) {
+    return { v, t: "s", s: { font: { bold: true, sz: 9, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: color } }, alignment: { horizontal: "center", vertical: "center" }, border: { bottom: { style: "thin", color: { rgb: XL_BORDER } } } } };
+  }
+  function sLabel(v) {
+    return { v, t: "s", s: { font: { bold: true, sz: 9, color: { rgb: XL_DARK } }, border: { bottom: { style: "thin", color: { rgb: XL_BORDER } } } } };
+  }
+  function sValue(v) {
+    const isNum = typeof v === "number";
+    return { v, t: isNum ? "n" : "s", s: { font: { sz: 9, color: { rgb: XL_DARK } }, alignment: { horizontal: isNum ? "right" : "left" }, border: { bottom: { style: "hair", color: { rgb: XL_BORDER } } } } };
+  }
+  function sCurrency(v) {
+    return { v, t: "n", z: "$#,##0.00", s: { font: { sz: 9, color: { rgb: XL_DARK } }, alignment: { horizontal: "right" }, border: { bottom: { style: "hair", color: { rgb: XL_BORDER } } }, numFmt: "$#,##0.00" } };
+  }
+  function sTotalLabel(v) {
+    return { v, t: "s", s: { font: { bold: true, sz: 9, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: XL_DARK } }, border: { top: { style: "medium", color: { rgb: XL_TEAL } } } } };
+  }
+  function sTotalCurrency(v) {
+    return { v, t: "n", z: "$#,##0.00", s: { font: { bold: true, sz: 9, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: XL_DARK } }, alignment: { horizontal: "right" }, border: { top: { style: "medium", color: { rgb: XL_TEAL } } } } };
+  }
+  function sTotalNum(v) {
+    return { v, t: "n", s: { font: { bold: true, sz: 9, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: XL_DARK } }, alignment: { horizontal: "right" }, border: { top: { style: "medium", color: { rgb: XL_TEAL } } } } };
+  }
+  function sAltRow(v, isNum) {
+    return { v, t: isNum ? "n" : "s", s: { font: { sz: 9, color: { rgb: XL_DARK } }, fill: { fgColor: { rgb: XL_ALT_ROW } }, alignment: { horizontal: isNum ? "right" : "left" }, border: { bottom: { style: "hair", color: { rgb: XL_BORDER } } } } };
+  }
+  function sAltCurrency(v) {
+    return { v, t: "n", z: "$#,##0.00", s: { font: { sz: 9, color: { rgb: XL_DARK } }, fill: { fgColor: { rgb: XL_ALT_ROW } }, alignment: { horizontal: "right" }, border: { bottom: { style: "hair", color: { rgb: XL_BORDER } } } } };
   }
 
-  function applyCurrencyFormat(ws, col, startRow, endRow) {
-    for (let r = startRow; r <= endRow; r++) {
-      const addr = XLSX.utils.encode_cell({ r, c: col });
-      if (ws[addr] && typeof ws[addr].v === "number") {
-        ws[addr].z = '$#,##0.00';
-      }
-    }
+  function buildStyledSheet(rows, colWidths) {
+    const ws = {};
+    let maxR = 0, maxC = 0;
+    rows.forEach((row, ri) => {
+      row.forEach((cell, ci) => {
+        if (cell === null || cell === undefined) return;
+        const addr = XLSX.utils.encode_cell({ r: ri, c: ci });
+        if (typeof cell === "object" && cell.v !== undefined) {
+          ws[addr] = cell;
+        } else {
+          ws[addr] = { v: cell, t: typeof cell === "number" ? "n" : "s" };
+        }
+        if (ci > maxC) maxC = ci;
+      });
+      if (row.length > 0) maxR = ri;
+    });
+    ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
+    ws["!cols"] = colWidths.map((w) => ({ wch: w }));
+    return ws;
   }
-
-  // ─── Sheet 1: Cover & Summary ────────────────────────────
-  const summaryData = [
-    [meta.projectName],
-    ["Power Architecture Cost & Time Comparison"],
-    [],
-    ["REPORT DETAILS"],
-    ["Customer", meta.customerName || "—"],
-    ["Prepared By", meta.preparedBy || "—"],
-    ["Date", meta.date],
-    ["Tool", "Power Delivery Comparison Tool"],
-    [],
-    ["PROJECT PARAMETERS"],
-    ["Parameter", "Value"],
-    ["Power Required", `${lastInputs.powerW} W`],
-    ["Distance", `${lastInputs.distanceFt} ft`],
-    ["Crew Size", `${lastInputs.crewSize} persons`],
-    ["Installation Type", lastInputs.installationType],
-    ["In-Building Routing", lastInputs.inBuildingType || "N/A"],
-    ["Outdoor Routing", lastInputs.outdoorType || "N/A"],
-    ["AC Conduit Size (outdoor)", lastInputs.outdoorConduitSize || '2"'],
-    ["End Device", lastInputs.endDeviceType],
-    [],
-    ["LABOR RATES"],
-    ["Role", "Rate ($/hr)"],
-  ];
 
   const labor = getLaborRates();
-  summaryData.push(["Electrician", labor.electrician]);
-  summaryData.push(["Low Voltage Technician", labor.lvTech]);
-  summaryData.push(["Design / PM", labor.design]);
-  summaryData.push(["Electrical Designer", labor.designer]);
-  summaryData.push(["Construction Laborer", labor.laborer]);
-  summaryData.push([]);
-  summaryData.push(["MODEL ASSUMPTIONS"]);
-  summaryData.push(["#", "Assumption"]);
-  getAssumptions().forEach((a, i) => summaryData.push([i + 1, a]));
-  summaryData.push([]);
-  summaryData.push(["EXECUTIVE SUMMARY"]);
-  summaryData.push(["Architecture", "Total Cost", "Materials", "Labor", "Hours", "Days", "Status"]);
-  const execStartRow = summaryData.length;
-  lastScenarios.forEach((s) => {
-    summaryData.push([
-      s.name,
-      isScenarioApplicable(s) ? s.totalCost : "N/A",
-      isScenarioApplicable(s) ? s.materialTotal : "N/A",
-      isScenarioApplicable(s) ? s.laborTotal : "N/A",
-      isScenarioApplicable(s) ? parseFloat(s.totalHours.toFixed(1)) : "N/A",
-      isScenarioApplicable(s) ? parseFloat(s.totalDays.toFixed(1)) : "N/A",
-      isScenarioApplicable(s) ? s.fitText : scenarioWarningText(s),
-    ]);
-  });
 
-  const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
-  ws1["!cols"] = [{ wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 10 }, { wch: 40 }];
-  // Apply formatting to header rows
-  applyHeaderStyle(ws1, XLSX.utils.encode_range({ s: { r: 10, c: 0 }, e: { r: 10, c: 1 } }));
-  const laborHeaderRow = summaryData.findIndex((r) => r[0] === "Role" && r[1] === "Rate ($/hr)");
-  if (laborHeaderRow >= 0) applyHeaderStyle(ws1, XLSX.utils.encode_range({ s: { r: laborHeaderRow, c: 0 }, e: { r: laborHeaderRow, c: 1 } }));
-  const execHeaderRow = execStartRow - 1;
-  applyHeaderStyle(ws1, XLSX.utils.encode_range({ s: { r: execHeaderRow, c: 0 }, e: { r: execHeaderRow, c: 6 } }));
-  // Currency format
-  for (let r = execStartRow; r < execStartRow + lastScenarios.length; r++) {
-    applyCurrencyFormat(ws1, 1, r, r);
-    applyCurrencyFormat(ws1, 2, r, r);
-    applyCurrencyFormat(ws1, 3, r, r);
-  }
-  // Merge title
-  ws1["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 3 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 3 } },
+  // ═══════════════════════════════════════════════════════════
+  // TAB 1: Cover / Project Info
+  // ═══════════════════════════════════════════════════════════
+  const coverRows = [
+    [sTitle(meta.projectName), null, null, null],
+    [{ v: "Power Architecture Cost & Time Comparison", t: "s", s: { font: { sz: 11, color: { rgb: XL_MUTED } } } }],
+    [],
+    [sSubheading("Report Details")],
+    [sLabel("Customer"), sValue(meta.customerName || "—")],
+    [sLabel("Prepared By"), sValue(meta.preparedBy || "—")],
+    [sLabel("Date"), sValue(meta.date)],
+    [sLabel("Tool"), sValue("Power Delivery Comparison Tool")],
+    [],
+    [sSubheading("Project Parameters")],
+    [sHeader("Parameter"), sHeader("Value")],
+    [sLabel("Power Required"), sValue(`${lastInputs.powerW} W`)],
+    [sLabel("Distance"), sValue(`${lastInputs.distanceFt} ft`)],
+    [sLabel("Crew Size"), sValue(`${lastInputs.crewSize} persons`)],
+    [sLabel("Installation Type"), sValue(lastInputs.installationType)],
+    [sLabel("In-Building Routing"), sValue(lastInputs.inBuildingType || "N/A")],
+    [sLabel("Outdoor Routing"), sValue(lastInputs.outdoorType || "N/A")],
+    [sLabel("AC Conduit Size"), sValue(lastInputs.outdoorConduitSize || '2"')],
+    [sLabel("End Device"), sValue(lastInputs.endDeviceType)],
+    [],
+    [sSubheading("Labor Rates")],
+    [sHeader("Role"), sHeader("Rate ($/hr)")],
+    [sLabel("Electrician"), sCurrency(labor.electrician)],
+    [sLabel("Low Voltage Technician"), sCurrency(labor.lvTech)],
+    [sLabel("Design / PM"), sCurrency(labor.design)],
+    [sLabel("Electrical Designer"), sCurrency(labor.designer)],
+    [sLabel("Construction Laborer"), sCurrency(labor.laborer)],
+    [],
+    [sSubheading("Model Assumptions")],
+    [sHeader("#"), sHeader("Assumption")],
   ];
-  XLSX.utils.book_append_sheet(wb, ws1, "Summary");
-
-  // ─── Sheet per architecture ───────────────────────────
-  lastScenarios.forEach((scenario) => {
-    const archLabel = scenarioShortLabel(scenario.name);
-    const headerRow = ["Phase", "Activity", "Description", "Quantity", "Unit", "Labor Role", "Labor Hours", "Labor Rate ($/hr)", "Material Cost ($)", "Labor Cost ($)", "Line Total ($)", "Milestone"];
-    const data = [
-      [`${scenario.name} — Line Item Detail`],
-      [],
-      [`Total Cost: ${formatScenarioCurrency(scenario)}`],
-      [
-        isScenarioApplicable(scenario)
-          ? `Duration: ${formatScenarioNumber(scenario, scenario.totalDays, 1, " calendar days")} (${formatScenarioNumber(scenario, scenario.totalHours, 1, " labor hours")})`
-          : `Status: ${scenarioWarningText(scenario)}`
-      ],
-      [],
-      headerRow,
-    ];
-
-    const dataStartRow = data.length;
-    if (scenario.rows.length) {
-      scenario.rows.forEach((r) => {
-        data.push([
-          r.phase,
-          r.activity,
-          r.description,
-          parseFloat(r.quantity.toFixed(2)),
-          r.unit,
-          r.laborRole,
-          parseFloat(r.laborHours.toFixed(2)),
-          r.laborRate,
-          r.materialCost,
-          r.laborCost,
-          r.lineTotal,
-          r.milestone,
-        ]);
-      });
-    } else {
-      data.push(["Status", scenarioWarningText(scenario)]);
-    }
-
-    // Phase subtotals section
-    const subtotalGap = data.length;
-    data.push([]);
-    data.push(["PHASE SUBTOTALS"]);
-    data.push(["Phase", "", "", "", "", "", "Hours", "", "Materials ($)", "Labor ($)", "Total ($)"]);
-    const subtotalHeaderRow = data.length - 1;
-    const phases = [...new Set(scenario.rows.map((r) => r.phase))];
-    phases.forEach((phase) => {
-      const phaseRows = scenario.rows.filter((r) => r.phase === phase);
-      const hrs = parseFloat(phaseRows.reduce((s, r) => s + r.laborHours, 0).toFixed(1));
-      const mat = phaseRows.reduce((s, r) => s + r.materialCost, 0);
-      const lab = phaseRows.reduce((s, r) => s + r.laborCost, 0);
-      data.push([phase, "", "", "", "", "", hrs, "", mat, lab, mat + lab]);
-    });
-
-    // Grand total row
-    const grandTotal = scenario.rows.reduce((s, r) => s + r.lineTotal, 0);
-    const grandHours = parseFloat(scenario.rows.reduce((s, r) => s + r.laborHours, 0).toFixed(1));
-    const grandMat = scenario.rows.reduce((s, r) => s + r.materialCost, 0);
-    const grandLab = scenario.rows.reduce((s, r) => s + r.laborCost, 0);
-    data.push(["GRAND TOTAL", "", "", "", "", "", grandHours, "", grandMat, grandLab, grandTotal]);
-
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    ws["!cols"] = [
-      { wch: 34 }, { wch: 36 }, { wch: 42 }, { wch: 10 }, { wch: 6 },
-      { wch: 24 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 22 },
-    ];
-    // Merge title
-    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
-    // Header style
-    applyHeaderStyle(ws, XLSX.utils.encode_range({ s: { r: 5, c: 0 }, e: { r: 5, c: 11 } }));
-    applyHeaderStyle(ws, XLSX.utils.encode_range({ s: { r: subtotalHeaderRow, c: 0 }, e: { r: subtotalHeaderRow, c: 10 } }));
-    // Currency columns
-    if (scenario.rows.length) {
-      applyCurrencyFormat(ws, 8, dataStartRow, dataStartRow + scenario.rows.length - 1);
-      applyCurrencyFormat(ws, 9, dataStartRow, dataStartRow + scenario.rows.length - 1);
-      applyCurrencyFormat(ws, 10, dataStartRow, dataStartRow + scenario.rows.length - 1);
-    }
-
-    // Table definition for the line items
-    if (scenario.rows.length) {
-      ws["!tables"] = ws["!tables"] || [];
-      ws["!tables"].push({
-        name: `tbl_${archLabel.replace(/\s/g, "")}`,
-        ref: XLSX.utils.encode_range({ s: { r: 5, c: 0 }, e: { r: dataStartRow + scenario.rows.length - 1, c: 11 } }),
-        headerRow: true,
-        totalsRow: false,
-        style: { name: "TableStyleMedium2" },
-      });
-    }
-
-    const sheetName = scenario.name.length > 31 ? scenario.name.slice(0, 31) : scenario.name;
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  getAssumptions().forEach((a, i) => {
+    coverRows.push([sValue(i + 1), sValue(a)]);
   });
 
-  // ─── Phase Comparison Sheet ───────────────────────────
+  const wsCover = buildStyledSheet(coverRows, [30, 58]);
+  wsCover["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 1 } },
+  ];
+  XLSX.utils.book_append_sheet(wb, wsCover, "Project Info");
+
+  // ═══════════════════════════════════════════════════════════
+  // TAB 2: Executive Summary
+  // ═══════════════════════════════════════════════════════════
+  const execRows = [
+    [sTitle("Executive Summary")],
+    [],
+    [sHeader("Architecture"), sHeader("Total Cost"), sHeader("Materials"), sHeader("Labor"), sHeader("Hours"), sHeader("Days"), sHeader("Status")],
+  ];
+  lastScenarios.forEach((s, i) => {
+    const alt = i % 2 === 1;
+    const applicable = isScenarioApplicable(s);
+    const row = [
+      alt ? sAltRow(s.name, false) : sValue(s.name),
+      applicable ? (alt ? sAltCurrency(s.totalCost) : sCurrency(s.totalCost)) : (alt ? sAltRow("N/A", false) : sValue("N/A")),
+      applicable ? (alt ? sAltCurrency(s.materialTotal) : sCurrency(s.materialTotal)) : (alt ? sAltRow("N/A", false) : sValue("N/A")),
+      applicable ? (alt ? sAltCurrency(s.laborTotal) : sCurrency(s.laborTotal)) : (alt ? sAltRow("N/A", false) : sValue("N/A")),
+      applicable ? (alt ? sAltRow(parseFloat(s.totalHours.toFixed(1)), true) : sValue(parseFloat(s.totalHours.toFixed(1)))) : (alt ? sAltRow("N/A", false) : sValue("N/A")),
+      applicable ? (alt ? sAltRow(parseFloat(s.totalDays.toFixed(1)), true) : sValue(parseFloat(s.totalDays.toFixed(1)))) : (alt ? sAltRow("N/A", false) : sValue("N/A")),
+      alt ? sAltRow(applicable ? s.fitText : scenarioWarningText(s), false) : sValue(applicable ? s.fitText : scenarioWarningText(s)),
+    ];
+    execRows.push(row);
+  });
+
+  const wsExec = buildStyledSheet(execRows, [32, 16, 16, 16, 12, 10, 42]);
+  wsExec["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
+  XLSX.utils.book_append_sheet(wb, wsExec, "Executive Summary");
+
+  // ═══════════════════════════════════════════════════════════
+  // TAB 3: Phase Comparison
+  // ═══════════════════════════════════════════════════════════
   const phaseOrder = [...new Set(lastScenarios.flatMap((s) => s.rows.map((r) => r.phase)))];
-  const compData = [
-    ["Phase Cost Comparison"],
+  const phaseRows = [
+    [sTitle("Phase Cost & Duration Comparison")],
     [],
-    ["Phase", ...lastScenarios.map((s) => s.name + " ($)"), ...lastScenarios.map((s) => s.name + " (Days)")],
+    [sHeader("Phase"), ...lastScenarios.map((s) => sHeader(scenarioShortLabel(s.name) + " ($)")), ...lastScenarios.map((s) => sHeader(scenarioShortLabel(s.name) + " (Days)"))],
   ];
-  const compHeaderRow = 2;
 
-  phaseOrder.forEach((phase) => {
-    const row = [phase];
+  phaseOrder.forEach((phase, pi) => {
+    const alt = pi % 2 === 1;
+    const row = [alt ? sAltRow(phase, false) : sValue(phase)];
     lastScenarios.forEach((s) => {
-      row.push(isScenarioApplicable(s) ? s.rows.filter((r) => r.phase === phase).reduce((sum, r) => sum + r.lineTotal, 0) : "N/A");
+      const cost = isScenarioApplicable(s) ? s.rows.filter((r) => r.phase === phase).reduce((sum, r) => sum + r.lineTotal, 0) : null;
+      row.push(cost !== null ? (alt ? sAltCurrency(cost) : sCurrency(cost)) : (alt ? sAltRow("N/A", false) : sValue("N/A")));
     });
     lastScenarios.forEach((s) => {
-      const phaseRows = s.rows.filter((r) => r.phase === phase);
-      const hrs = phaseRows.reduce((sum, r) => sum + r.laborHours, 0);
+      const phaseR = s.rows.filter((r) => r.phase === phase);
+      const hrs = phaseR.reduce((sum, r) => sum + r.laborHours, 0);
       const days = DESIGN_PHASES.has(phase) ? hrs / 8 : hrs / 8 / s.crewSize;
-      row.push(isScenarioApplicable(s) ? parseFloat(days.toFixed(1)) : "N/A");
+      const val = isScenarioApplicable(s) ? parseFloat(days.toFixed(1)) : null;
+      row.push(val !== null ? (alt ? sAltRow(val, true) : sValue(val)) : (alt ? sAltRow("N/A", false) : sValue("N/A")));
     });
-    compData.push(row);
+    phaseRows.push(row);
   });
 
-  // Totals row
-  const totalRow = ["TOTAL"];
-  lastScenarios.forEach((s) => totalRow.push(isScenarioApplicable(s) ? s.totalCost : "N/A"));
-  lastScenarios.forEach((s) => totalRow.push(isScenarioApplicable(s) ? parseFloat(s.totalDays.toFixed(1)) : "N/A"));
-  compData.push(totalRow);
+  // Total row
+  const phaseTotalRow = [sTotalLabel("TOTAL")];
+  lastScenarios.forEach((s) => phaseTotalRow.push(isScenarioApplicable(s) ? sTotalCurrency(s.totalCost) : sTotalLabel("N/A")));
+  lastScenarios.forEach((s) => phaseTotalRow.push(isScenarioApplicable(s) ? sTotalNum(parseFloat(s.totalDays.toFixed(1))) : sTotalLabel("N/A")));
+  phaseRows.push(phaseTotalRow);
 
-  const ws4 = XLSX.utils.aoa_to_sheet(compData);
-  ws4["!cols"] = [{ wch: 36 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
-  ws4["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
-  applyHeaderStyle(ws4, XLSX.utils.encode_range({ s: { r: compHeaderRow, c: 0 }, e: { r: compHeaderRow, c: lastScenarios.length * 2 } }));
-  // Currency for cost columns
-  for (let ci = 1; ci <= lastScenarios.length; ci++) {
-    applyCurrencyFormat(ws4, ci, compHeaderRow + 1, compHeaderRow + phaseOrder.length + 1);
-  }
+  const colCount = 1 + lastScenarios.length * 2;
+  const phaseColWidths = [36, ...Array(lastScenarios.length).fill(16), ...Array(lastScenarios.length).fill(14)];
+  const wsPhase = buildStyledSheet(phaseRows, phaseColWidths);
+  wsPhase["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: Math.min(3, colCount - 1) } }];
+  XLSX.utils.book_append_sheet(wb, wsPhase, "Phase Comparison");
 
-  // Table definition
-  ws4["!tables"] = [{
-    name: "tbl_PhaseComparison",
-    ref: XLSX.utils.encode_range({ s: { r: compHeaderRow, c: 0 }, e: { r: compHeaderRow + phaseOrder.length + 1, c: lastScenarios.length * 2 } }),
-    headerRow: true,
-    totalsRow: false,
-    style: { name: "TableStyleMedium2" },
-  }];
-
-  XLSX.utils.book_append_sheet(wb, ws4, "Phase Comparison");
-
-  // ─── Capacity Sheet ───────────────────────────────────
-  const capData = [
-    ["Future Power Capacity Summary"],
+  // ═══════════════════════════════════════════════════════════
+  // TAB 4: Capacity
+  // ═══════════════════════════════════════════════════════════
+  const capRows = [
+    [sTitle("Future Power Capacity")],
     [],
-    ["Architecture", "Used (W)", "Available (W)", "Provisioned (W)", "Basis / Status"],
+    [sHeader("Architecture"), sHeader("Used (W)"), sHeader("Available (W)"), sHeader("Provisioned (W)"), sHeader("Basis / Status")],
   ];
-  const capHeaderRow = 2;
-
-  lastScenarios.forEach((scenario) => {
+  lastScenarios.forEach((scenario, i) => {
+    const alt = i % 2 === 1;
     const cap = scenario.capacity;
     if (!cap || cap.applicable === false) {
-      capData.push([scenarioShortLabel(scenario.name), "N/A", "N/A", "N/A", scenarioWarningText(scenario)]);
+      capRows.push([
+        alt ? sAltRow(scenarioShortLabel(scenario.name), false) : sValue(scenarioShortLabel(scenario.name)),
+        alt ? sAltRow("N/A", false) : sValue("N/A"),
+        alt ? sAltRow("N/A", false) : sValue("N/A"),
+        alt ? sAltRow("N/A", false) : sValue("N/A"),
+        alt ? sAltRow(scenarioWarningText(scenario), false) : sValue(scenarioWarningText(scenario)),
+      ]);
     } else {
-      capData.push([
-        scenarioShortLabel(scenario.name),
-        cap.usedW || 0,
-        cap.remainingW || 0,
-        cap.totalW || 0,
-        `${cap.totalLabel || "Provisioned"} | ${cap.basis}`,
+      capRows.push([
+        alt ? sAltRow(scenarioShortLabel(scenario.name), false) : sValue(scenarioShortLabel(scenario.name)),
+        alt ? sAltRow(cap.usedW || 0, true) : sValue(cap.usedW || 0),
+        alt ? sAltRow(cap.remainingW || 0, true) : sValue(cap.remainingW || 0),
+        alt ? sAltRow(cap.totalW || 0, true) : sValue(cap.totalW || 0),
+        alt ? sAltRow(`${cap.totalLabel || "Provisioned"} | ${cap.basis}`, false) : sValue(`${cap.totalLabel || "Provisioned"} | ${cap.basis}`),
       ]);
     }
   });
 
-  const ws5 = XLSX.utils.aoa_to_sheet(capData);
-  ws5["!cols"] = [{ wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 48 }];
-  ws5["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
-  applyHeaderStyle(ws5, XLSX.utils.encode_range({ s: { r: capHeaderRow, c: 0 }, e: { r: capHeaderRow, c: 4 } }));
-  XLSX.utils.book_append_sheet(wb, ws5, "Capacity");
+  const wsCap = buildStyledSheet(capRows, [20, 14, 16, 18, 50]);
+  wsCap["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
+  XLSX.utils.book_append_sheet(wb, wsCap, "Capacity");
+
+  // ═══════════════════════════════════════════════════════════
+  // TAB per Architecture: Line Item Detail
+  // ═══════════════════════════════════════════════════════════
+  lastScenarios.forEach((scenario) => {
+    const archLabel = scenarioShortLabel(scenario.name);
+    const archKey = scenarioArchKey(scenario.name);
+    const archColor = archKey === "ac" ? XL_BLUE : archKey === "cl2" ? XL_PURPLE : XL_TEAL;
+
+    const rows = [
+      [sTitle(`${scenario.name}`)],
+      [{ v: `Total: ${formatScenarioCurrency(scenario)}  |  ${isScenarioApplicable(scenario) ? num(scenario.totalDays, 1) + " days" : "N/A"}`, t: "s", s: { font: { sz: 10, color: { rgb: XL_MUTED } } } }],
+      [],
+      [sSubheading("Line Item Detail")],
+      [sHeaderAccent("Phase", archColor), sHeaderAccent("Activity", archColor), sHeaderAccent("Description", archColor), sHeaderAccent("Qty", archColor), sHeaderAccent("Unit", archColor), sHeaderAccent("Labor Role", archColor), sHeaderAccent("Hours", archColor), sHeaderAccent("Rate ($/hr)", archColor), sHeaderAccent("Material $", archColor), sHeaderAccent("Labor $", archColor), sHeaderAccent("Line Total $", archColor), sHeaderAccent("Milestone", archColor)],
+    ];
+
+    const dataStartRow = rows.length;
+    if (scenario.rows.length) {
+      scenario.rows.forEach((r, ri) => {
+        const alt = ri % 2 === 1;
+        rows.push([
+          alt ? sAltRow(r.phase, false) : sValue(r.phase),
+          alt ? sAltRow(r.activity, false) : sValue(r.activity),
+          alt ? sAltRow(r.description, false) : sValue(r.description),
+          alt ? sAltRow(parseFloat(r.quantity.toFixed(2)), true) : sValue(parseFloat(r.quantity.toFixed(2))),
+          alt ? sAltRow(r.unit, false) : sValue(r.unit),
+          alt ? sAltRow(r.laborRole, false) : sValue(r.laborRole),
+          alt ? sAltRow(parseFloat(r.laborHours.toFixed(2)), true) : sValue(parseFloat(r.laborHours.toFixed(2))),
+          alt ? sAltCurrency(r.laborRate) : sCurrency(r.laborRate),
+          alt ? sAltCurrency(r.materialCost) : sCurrency(r.materialCost),
+          alt ? sAltCurrency(r.laborCost) : sCurrency(r.laborCost),
+          alt ? sAltCurrency(r.lineTotal) : sCurrency(r.lineTotal),
+          alt ? sAltRow(r.milestone, false) : sValue(r.milestone),
+        ]);
+      });
+    } else {
+      rows.push([sValue("Status"), sValue(scenarioWarningText(scenario))]);
+    }
+
+    // Grand total row
+    if (scenario.rows.length) {
+      const grandHours = parseFloat(scenario.rows.reduce((s, r) => s + r.laborHours, 0).toFixed(1));
+      const grandMat = scenario.rows.reduce((s, r) => s + r.materialCost, 0);
+      const grandLab = scenario.rows.reduce((s, r) => s + r.laborCost, 0);
+      const grandTotal = scenario.rows.reduce((s, r) => s + r.lineTotal, 0);
+      rows.push([sTotalLabel("TOTAL"), sTotalLabel(""), sTotalLabel(""), sTotalLabel(""), sTotalLabel(""), sTotalLabel(""), sTotalNum(grandHours), sTotalLabel(""), sTotalCurrency(grandMat), sTotalCurrency(grandLab), sTotalCurrency(grandTotal), sTotalLabel("")]);
+    }
+
+    // Phase Subtotals section
+    rows.push([]);
+    rows.push([sSubheading("Phase Subtotals")]);
+    rows.push([sHeader("Phase"), null, null, null, null, null, sHeader("Hours"), null, sHeader("Materials $"), sHeader("Labor $"), sHeader("Total $")]);
+    const phases = [...new Set(scenario.rows.map((r) => r.phase))];
+    phases.forEach((phase, pi) => {
+      const alt = pi % 2 === 1;
+      const phaseR = scenario.rows.filter((r) => r.phase === phase);
+      const hrs = parseFloat(phaseR.reduce((s, r) => s + r.laborHours, 0).toFixed(1));
+      const mat = phaseR.reduce((s, r) => s + r.materialCost, 0);
+      const lab = phaseR.reduce((s, r) => s + r.laborCost, 0);
+      rows.push([
+        alt ? sAltRow(phase, false) : sValue(phase), null, null, null, null, null,
+        alt ? sAltRow(hrs, true) : sValue(hrs), null,
+        alt ? sAltCurrency(mat) : sCurrency(mat),
+        alt ? sAltCurrency(lab) : sCurrency(lab),
+        alt ? sAltCurrency(mat + lab) : sCurrency(mat + lab),
+      ]);
+    });
+
+    const ws = buildStyledSheet(rows, [34, 36, 42, 10, 7, 24, 12, 14, 14, 14, 14, 22]);
+    ws["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
+    ];
+
+    const sheetName = archLabel.length > 31 ? archLabel.slice(0, 31) : archLabel;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
 
   // Save
   const filename = meta.projectName.replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_") + "_Report.xlsx";
